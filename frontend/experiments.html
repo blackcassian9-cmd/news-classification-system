@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>中文新闻文本分类系统 - 实验记录与模型管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#fff;font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;color:#111827}
+.stage{width:100vw;height:100vh;overflow:hidden;position:relative;background:#fff}
+.app{width:2048px;height:1152px;position:absolute;left:0;top:0;transform-origin:top left;display:flex;background:radial-gradient(circle at 88% 8%,rgba(220,38,38,.055),transparent 27%),radial-gradient(circle at 9% 88%,rgba(220,38,38,.055),transparent 25%),#fff}
+.icon{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}.sicon{width:16px;height:16px}.fill{fill:currentColor;stroke:currentColor}
+
+/* left sidebar */
+.sidebar{width:282px;height:1152px;flex-shrink:0;background:rgba(255,255,255,.96);border-right:none;position:relative;overflow:visible;z-index:10}
+.sidebar:after{content:"";position:absolute;right:0;top:84px;bottom:0;width:1px;background:#f0d7d7;pointer-events:none}
+.brand{height:84px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #f2eded;overflow:visible}
+.brand-logo{width:50px;height:50px;margin-right:16px;flex-shrink:0;position:relative;background:linear-gradient(145deg,#c90011,#ff5e66);box-shadow:0 12px 24px rgba(220,38,38,.23);clip-path:polygon(50% 0,92% 25%,92% 75%,50% 100%,8% 75%,8% 25%)}
+.brand-logo:before{content:"";position:absolute;inset:12px;border:3px solid #fff;border-radius:4px;transform:rotate(30deg)}
+.brand-logo:after{content:"";position:absolute;left:17px;top:17px;width:17px;height:17px;border:3px solid #fff;border-left:none;border-top:none;transform:rotate(30deg)}
+.brand-copy{width:520px;flex-shrink:0;overflow:visible}
+.brand h1{font-size:23px;line-height:1.08;font-weight:900;letter-spacing:-.4px;white-space:nowrap;color:#111827}
+.brand p{font-size:12.5px;color:#6b7280;margin-top:8px;white-space:nowrap}
+.menu{padding:22px 17px 0 15px}
+.menu-item{height:52px;display:flex;align-items:center;gap:17px;padding:0 20px;border-radius:8px;color:#374151;font-size:15.5px;font-weight:600;margin-bottom:7px;position:relative}
+.menu-item svg{width:22px;height:22px;color:#4b5563}
+.menu-item.active{background:linear-gradient(90deg,rgba(220,38,38,.16),rgba(220,38,38,.075));color:#dc151d;font-weight:900}
+.menu-item.active:before{content:"";position:absolute;left:-15px;width:4px;height:36px;background:#e10012;border-radius:0 6px 6px 0}
+.menu-item.active svg{fill:#e11d26;stroke:#e11d26}
+.orbital{position:absolute;left:23px;bottom:36px;width:236px;height:206px;pointer-events:none}
+.orbital .ring{position:absolute;left:3px;bottom:41px;width:228px;height:80px;border:1px solid rgba(239,68,68,.22);border-radius:50%;transform:rotate(-7deg)}
+.orbital .base{position:absolute;bottom:13px;left:52px;width:132px;height:41px;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.94) 0,rgba(220,38,38,.78) 43%,rgba(220,38,38,.05) 80%);filter:blur(2px)}
+.orbital .diamond{position:absolute;left:81px;top:42px;width:75px;height:75px;background:linear-gradient(145deg,#ffb5bb,#ff7c84 32%,#ef4444 70%,#dc2626);transform:rotate(45deg);border-radius:8px;box-shadow:0 20px 36px rgba(220,38,38,.28)}
+.orbital .diamond:after{content:"";position:absolute;inset:13px;background:rgba(255,255,255,.17);border-radius:6px}.dot{position:absolute;width:7px;height:7px;background:#ef1d27;border-radius:50%;box-shadow:0 0 12px rgba(220,38,38,.55)}
+.d1{left:15px;top:90px}.d2{right:14px;top:104px}.d3{right:48px;top:31px;width:6px;height:6px}.d4{left:3px;top:76px;width:4px;height:4px}
+
+/* top */
+.main{flex:1;height:1152px;overflow:hidden;position:relative}
+.topbar{height:84px;border-bottom:1px solid #f0d7d7;background:rgba(255,255,255,.88);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 34px 0 430px}
+.search{width:625px;height:48px;border:1.5px solid #f3a6aa;border-radius:8px;display:flex;align-items:center;padding:0 16px;color:#9ca3af;font-size:15px;background:rgba(255,255,255,.9);box-shadow:0 8px 26px rgba(220,38,38,.045)}
+.search svg{width:22px;height:22px;margin-right:13px;color:#6b7280}.kbd{margin-left:auto;width:50px;height:28px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;gap:5px;color:#374151;font-weight:800}
+.top-actions{display:flex;align-items:center;gap:20px}.pill{height:34px;padding:0 16px;border-radius:999px;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:900}.pill:before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}.green{color:#16a34a;background:#e9f8ee}.redpill{color:#dc2626;background:#fde8e8}
+.bell{position:relative;color:#374151}.bell:after{content:"3";position:absolute;right:-7px;top:-8px;width:16px;height:16px;background:#e60012;border-radius:50%;box-shadow:0 0 0 2px #fff;color:#fff;font-size:10px;line-height:16px;text-align:center;font-weight:900}
+.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#e90012,#b8000d);display:grid;place-items:center;color:white}.avatar svg{width:29px;height:29px;fill:white;stroke:white}.admin{height:38px;padding:0 14px;border-radius:999px;background:#fff2f2;display:flex;align-items:center;gap:9px;color:#374151;font-size:14px;font-weight:800}
+
+/* content */
+.content{height:1068px;padding:24px 34px 20px 30px;overflow:hidden}
+.page-title{height:66px;display:flex;flex-direction:column;justify-content:flex-start}
+.page-title h2{font-size:25px;font-weight:900;letter-spacing:-.3px;line-height:1.1;display:flex;align-items:center;gap:10px}
+.page-title p{font-size:14px;color:#374151;margin-top:13px}
+.info-dot{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.8px solid #6b7280;border-radius:50%;font-size:12px;color:#6b7280;font-weight:900}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:24px;margin-bottom:18px}
+.stat{height:112px;border:1.5px solid #f0d7d7;border-radius:10px;background:rgba(255,255,255,.95);box-shadow:0 12px 28px rgba(220,38,38,.035);position:relative;padding:24px 22px 18px 86px;overflow:hidden}
+.stat .circle{position:absolute;left:24px;top:27px;width:46px;height:46px;border-radius:50%;display:grid;place-items:center}
+.stat .circle svg{width:25px;height:25px}
+.stat .lab{font-size:13px;color:#374151;font-weight:800;margin-bottom:8px;line-height:18px}
+.stat .val{font-size:25px;font-weight:900;color:#111827;margin-bottom:6px;line-height:28px}
+.stat .sub{font-size:12.5px;color:#6b7280;line-height:16px}.up{color:#16a34a;font-weight:900}.bluebg{background:#eaf3ff;color:#1d7cf2}.greenbg{background:#eaf8ef;color:#16a34a}.purplebg{background:#f2e9ff;color:#7c3aed}.orangebg{background:#fff0e5;color:#f97316}.redbg{background:#ffe9e9;color:#e11d26}
+
+/* layout */
+.grid-top{display:grid;grid-template-columns:minmax(0,1fr) 612px;gap:14px;height:514px;margin-bottom:14px}
+.panel{border:1.5px solid #f2d6d6;border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 12px 30px rgba(220,38,38,.035);overflow:hidden;position:relative}
+.records{padding:0 16px 12px}.detail{padding:0 22px 14px}.panel-head{height:54px;display:flex;align-items:center;justify-content:space-between}
+.tabs{height:54px;display:flex;align-items:center;gap:36px;font-size:15px;font-weight:900}.tab{height:54px;display:flex;align-items:center;color:#111827;position:relative}.tab.active{color:#e11d26}.tab.active:after{content:"";position:absolute;left:0;right:0;bottom:8px;height:2.5px;background:#e11d26;border-radius:999px}
+.filters{height:40px;display:grid;grid-template-columns:190px 135px 145px 145px 145px 78px 104px;gap:12px;margin-bottom:10px}
+.input,.select,.smallbtn,.redbtn{height:30px;border-radius:5px;border:1px solid #e5e7eb;background:#fff;color:#374151;font-size:12.5px;font-weight:700;display:flex;align-items:center;padding:0 12px}.input{color:#9ca3af;gap:8px}.select{justify-content:space-between}.smallbtn{justify-content:center;gap:7px}.redbtn{background:#e60012;border-color:#e60012;color:#fff;font-weight:900;justify-content:center;gap:8px}
+
+/* table */
+.exp-table{height:326px;border:1px solid #edf0f4;border-radius:8px;overflow:hidden}
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+.exp-table th{height:36px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#374151;font-size:12.5px;text-align:left;padding:0 16px;font-weight:900}
+.exp-table td{height:36px;border-bottom:1px solid #edf0f4;color:#1f2937;font-size:12.5px;padding:0 16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-table th:nth-child(1),.exp-table td:nth-child(1){width:195px}.exp-table th:nth-child(2),.exp-table td:nth-child(2){width:120px}.exp-table th:nth-child(3),.exp-table td:nth-child(3){width:160px}.exp-table th:nth-child(4),.exp-table td:nth-child(4){width:110px}.exp-table th:nth-child(5),.exp-table td:nth-child(5){width:110px}.exp-table th:nth-child(6),.exp-table td:nth-child(6){width:95px}.exp-table th:nth-child(7),.exp-table td:nth-child(7){width:160px}.exp-table th:nth-child(8),.exp-table td:nth-child(8){width:92px;padding-right:8px}
+.badge{height:22px;padding:0 10px;border-radius:999px;font-size:11.5px;font-weight:900;display:inline-flex;align-items:center;justify-content:center}.done{background:#dcfce7;color:#16a34a}.train{background:#dbeafe;color:#3b82f6}.fail{background:#fee2e2;color:#ef4444}.running{background:#ffedd5;color:#f97316}
+.ops{display:flex;gap:7px}.op{width:22px;height:22px;border:1px solid #e5e7eb;border-radius:5px;display:grid;place-items:center;color:#4b5563;background:#fff}.op.red{color:#e11d26}
+.foot{height:50px;display:flex;align-items:center;justify-content:space-between;color:#4b5563;font-size:13px}.pagebox{display:flex;align-items:center;gap:25px}.page{width:32px;height:32px;background:#e60012;color:white;border-radius:5px;display:grid;place-items:center;font-weight:900}.per{width:122px;height:30px;border:1px solid #e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:28px;background:#fff;color:#111827;font-weight:700}.jump{display:flex;align-items:center;gap:13px}.jump input{width:48px;height:28px;border:1px solid #e5e7eb;border-radius:5px;text-align:center}
+
+/* detail panel */
+.detail-head{height:58px;display:flex;align-items:center;justify-content:space-between}.detail h3{font-size:17px;font-weight:900}.report{width:104px;height:30px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#374151;font-size:12px;font-weight:800}
+.expname{font-size:18px;font-weight:900;margin:4px 0 15px;display:flex;align-items:center;gap:12px}.tag-ok{height:22px;padding:0 10px;border-radius:999px;background:#dcfce7;color:#16a34a;font-size:12px;font-weight:900}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px 42px;margin-bottom:17px}
+.mrow{display:grid;grid-template-columns:72px 1fr;font-size:12.5px;line-height:24px;color:#374151}.mrow b{font-weight:800;color:#6b7280}
+.detail-desc{font-size:12.5px;color:#4b5563;margin-bottom:19px}.result-title,.curve-title{font-size:14px;font-weight:900;margin-bottom:12px}
+.results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.result-card{height:65px;border:1px solid #edf0f4;border-radius:8px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}.result-card span{font-size:12px;font-weight:800;color:#374151;margin-bottom:8px}.result-card b{font-size:18px;font-weight:900}
+.chartbox{height:162px;position:relative;padding:4px 0 0 0}.chartsvg{width:100%;height:146px}.legend2{position:absolute;right:32px;top:0;display:flex;gap:28px;font-size:11.5px;font-weight:800}.legend2 i{display:inline-block;width:18px;height:3px;border-radius:999px;margin-right:5px;vertical-align:middle;background:#ef1d27}.legend2 i.blue{background:#2b7de9}
+
+/* bottom */
+.bottom{display:grid;grid-template-columns:790px 340px 1fr;gap:14px;height:246px}
+.version{padding:0 14px 13px}.quick{padding:0 14px 13px}.tasks{padding:0 22px 13px}
+.bottom .panel-head{height:50px}.bottom h3{font-size:17px;font-weight:900}
+.version-table{border:1px solid #edf0f4;border-radius:8px;overflow:hidden}
+.version-table th{height:32px;background:#fff;color:#374151;font-size:12.5px;text-align:left;padding:0 12px;border-bottom:1px solid #e5e7eb}.version-table td{height:38px;border-bottom:1px solid #edf0f4;color:#1f2937;font-size:12.5px;padding:0 12px;white-space:nowrap}.version-table td:last-child{padding-right:6px}
+.quick-list{border:1px solid #edf0f4;border-radius:8px;overflow:hidden}.quick-item{height:51px;display:grid;grid-template-columns:46px 1fr 18px;align-items:center;border-bottom:1px solid #edf0f4}.quick-item:last-child{border-bottom:none}.qicon{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;margin-left:14px}.quick-item b{font-size:14px}.quick-item p{font-size:12px;color:#6b7280;margin-top:3px}
+.task-list{height:170px}.task-row{height:42px;display:grid;grid-template-columns:16px 1fr 62px 110px 42px;align-items:center;gap:12px;font-size:12.5px;color:#374151}.tdot{width:8px;height:8px;border-radius:50%;background:#22c55e}.tdot.blue{background:#0ea5e9}.tprogress{height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden}.tprogress i{display:block;height:100%;background:#16a34a;border-radius:999px}.tprogress i.blue{background:#2b7de9}
+.statusmini{height:22px;border-radius:999px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center}.statusmini.run{background:#dcfce7;color:#16a34a}
+.footer-status{height:36px;display:flex;align-items:center;gap:34px;font-size:13px;color:#374151}.red-dot,.green-dot,.gray-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin:0 7px}.red-dot{background:#e60012}.green-dot{background:#16a34a}.gray-dot{background:#e5e7eb}
+
+/* 快速操作：只压缩该模块行高，保证四条内容完整显示 */
+.quick-list{
+  height:184px;
+}
+
+.quick-item{
+  height:46px;
+  grid-template-columns:44px 1fr 18px;
+}
+
+.qicon{
+  width:26px;
+  height:26px;
+  margin-left:13px;
+}
+
+.quick-item b{
+  font-size:13.5px;
+  line-height:17px;
+}
+
+.quick-item p{
+  font-size:11.5px;
+  line-height:15px;
+  margin-top:2px;
+}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;visibility:hidden">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V21h13V10.5"/><path d="M9.5 21v-6h5v6"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v12c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M9 5v14"/></symbol>
+<symbol id="i-tf" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h7M10.5 9v7M15 9h4M15 12h3"/></symbol>
+<symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 5a3 3 0 0 0-5 2.2A3.5 3.5 0 0 0 5 14a3 3 0 0 0 4 4"/><path d="M15 5a3 3 0 0 1 5 2.2A3.5 3.5 0 0 1 19 14a3 3 0 0 1-4 4"/><path d="M9 5v13M15 5v13"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 17V9M12 17V5M17 17v-7"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></symbol>
+<symbol id="i-archive" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M3 4h18v3H3zM9 11h6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-record" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 8h8M8 12h6M8 16h4"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 18H8a5 5 0 1 1 1.2-9.9A6 6 0 0 1 20 11.5 3.5 3.5 0 0 1 17.5 18z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/><rect x="4" y="4" width="16" height="16" rx="3"/></symbol>
+<symbol id="i-boxes" viewBox="0 0 24 24"><path d="m12 3 6 3.5v7L12 17l-6-3.5v-7z"/><path d="M12 10 6 6.5M12 10l6-3.5M12 10v7"/><path d="M5 14v4l7 4 7-4v-4"/></symbol>
+<symbol id="i-accuracy" viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M8 16l3-4 3 2 3-6"/><path d="M16 8h2v2"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 5-3.4 8.2-8 9-4.6-.8-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-13.7 5.7"/><path d="M4 12A8 8 0 0 1 17.7 6.3"/><path d="M18 2v5h-5"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l11-11-4-4L4 16z"/><path d="m14 6 4 4"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.7 15.4 6.3M8.6 13.3l6.8 4.4"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></symbol>
+</svg>
+
+<div class="stage"><div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-logo"></div><div class="brand-copy"><h1>中文新闻文本分类系统</h1><p>基于 TF-IDF、机器学习与深度学习的智能分析平台</p></div></div>
+  <nav class="menu">
+    <div class="menu-item"><svg class="icon"><use href="#i-home"/></svg>首页总览</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-db"/></svg>数据集管理</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-table"/></svg>数据预览与清洗</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-tf"/></svg>TF-IDF 特征提取</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-brain"/></svg>模型训练</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-sliders"/></svg>深度学习参数优化</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-chart"/></svg>模型评价与可视化</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-alert"/></svg>错误样本与关键词解释</div>
+    <div class="menu-item active"><svg class="icon"><use href="#i-archive"/></svg>实验记录与模型管理</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-send"/></svg>新闻文本预测</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-file"/></svg>报告导出</div>
+  </nav>
+  <div class="orbital"><div class="ring"></div><div class="diamond"></div><div class="base"></div><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div></div>
+</aside>
+
+<main class="main">
+<header class="topbar">
+  <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>输入内容 / 搜索功能...</span><div class="kbd">⌘ K</div></div>
+  <div class="top-actions"><div class="pill green">系统在线</div><div class="pill redpill">模型已加载</div><div class="bell"><svg class="icon"><use href="#i-bell"/></svg></div><div class="avatar"><svg class="icon"><use href="#i-user"/></svg></div><div class="admin">管理员 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+</header>
+
+<section class="content">
+  <div class="page-title"><h2>实验记录与模型管理 <span class="info-dot">i</span></h2><p>管理所有实验记录、模型版本和训练结果，支持模型对比、版本回溯与部署应用。</p></div>
+
+  <div class="stats">
+    <div class="stat"><div class="circle bluebg"><svg class="icon"><use href="#i-cloud"/></svg></div><div class="lab">实验总数</div><div class="val">28</div><div class="sub">较上次 <span class="up">+12.0% ↑</span></div></div>
+    <div class="stat"><div class="circle greenbg"><svg class="icon"><use href="#i-check"/></svg></div><div class="lab">已完成实验</div><div class="val">24</div><div class="sub">占比 85.7%</div></div>
+    <div class="stat"><div class="circle purplebg"><svg class="icon"><use href="#i-boxes"/></svg></div><div class="lab">训练模型总数</div><div class="val">36</div><div class="sub">较上次 <span class="up">+8.3% ↑</span></div></div>
+    <div class="stat"><div class="circle orangebg"><svg class="icon"><use href="#i-accuracy"/></svg></div><div class="lab">最佳模型准确率</div><div class="val">92.35%</div><div class="sub">较上次 <span class="up">+1.25% ↑</span></div></div>
+    <div class="stat"><div class="circle redbg"><svg class="icon"><use href="#i-shield"/></svg></div><div class="lab">已部署模型</div><div class="val">5</div><div class="sub">生产环境运行中</div></div>
+    <div class="stat"><div class="circle bluebg"><svg class="icon"><use href="#i-save"/></svg></div><div class="lab">存储使用量</div><div class="val">12.45 GB</div><div class="sub">占用 34.6%</div></div>
+  </div>
+
+  <div class="grid-top">
+    <section class="panel records">
+      <div class="panel-head"><div class="tabs"><div class="tab active">实验记录</div><div class="tab">模型管理</div></div></div>
+      <div class="filters">
+        <div class="input"><svg class="icon sicon"><use href="#i-search"/></svg>搜索实验名称...</div>
+        <div class="select">全部状态 <svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="select">全部模型类型 <svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="select">全部数据集 <svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="select">创建时间 <svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="smallbtn"><svg class="icon sicon"><use href="#i-refresh"/></svg>刷新</div>
+        <div class="redbtn"><svg class="icon sicon"><use href="#i-plus"/></svg>新建实验</div>
+      </div>
+      <div class="exp-table">
+        <table>
+          <thead><tr><th>实验名称</th><th>模型类型</th><th>数据集</th><th>准确率 ↕</th><th>F1-Score</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td>新闻分类_深度学习_v3</td><td>BiLSTM</td><td>THUCNews_轻量版</td><td>92.35%</td><td>0.923</td><td><span class="badge done">已完成</span></td><td>2024-06-01 14:25:30</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_XGBoost_v2</td><td>XGBoost</td><td>THUCNews_轻量版</td><td>90.12%</td><td>0.901</td><td><span class="badge done">已完成</span></td><td>2024-05-31 10:18:22</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_LR_baseline</td><td>逻辑回归</td><td>THUCNews_轻量版</td><td>81.45%</td><td>0.812</td><td><span class="badge done">已完成</span></td><td>2024-05-30 16:45:11</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_CNN_v1</td><td>TextCNN</td><td>THUCNews_轻量版</td><td>89.67%</td><td>0.895</td><td><span class="badge done">已完成</span></td><td>2024-05-29 09:33:45</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_RandomForest</td><td>随机森林</td><td>THUCNews_轻量版</td><td>85.23%</td><td>0.852</td><td><span class="badge done">已完成</span></td><td>2024-05-28 13:22:33</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_Transformer</td><td>BERT</td><td>THUCNews_完整版</td><td>91.78%</td><td>0.918</td><td><span class="badge train">训练中</span></td><td>2024-06-01 15:10:05</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_优化实验_01</td><td>BiLSTM</td><td>THUCNews_轻量版</td><td>--</td><td>--</td><td><span class="badge fail">失败</span></td><td>2024-05-27 11:05:18</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>新闻分类_参数调优_02</td><td>XGBoost</td><td>THUCNews_轻量版</td><td>--</td><td>--</td><td><span class="badge running">运行中</span></td><td>2024-06-01 15:25:10</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-eye"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-edit"/></svg></span><span class="op red"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="foot"><span>共 28 条记录</span><div class="pagebox"><div class="per">10条/页 <svg class="icon sicon"><use href="#i-chevron"/></svg></div><span>‹</span><span class="page">1</span><span>2</span><span>3</span><span>›</span></div><div class="jump">前往 <input value="1" /> 页</div></div>
+    </section>
+
+    <aside class="panel detail">
+      <div class="detail-head"><h3>实验详情</h3><button class="report">查看完整报告</button></div>
+      <div class="expname">新闻分类_深度学习_v3 <span class="tag-ok">已完成</span></div>
+      <div class="meta">
+        <div class="mrow"><b>实验 ID</b><span>EXP_20240601_001</span></div><div class="mrow"><b>组别</b><span>THUCNews_轻量版</span></div>
+        <div class="mrow"><b>模型类型</b><span>BiLSTM</span></div><div class="mrow"><b>特征类型</b><span>TF-IDF</span></div>
+        <div class="mrow"><b>数据集</b><span>轻量版</span></div><div class="mrow"><b>训练时长</b><span>00:25:18</span></div>
+      </div>
+      <div class="detail-desc"><b>描述</b>　使用 BiLSTM 模型进行新闻文本分类，优化了网络结构和超参数配置...</div>
+      <div class="result-title">实验结果</div>
+      <div class="results"><div class="result-card"><span>准确率</span><b>92.35%</b></div><div class="result-card"><span>精确率</span><b>92.18%</b></div><div class="result-card"><span>召回率</span><b>92.52%</b></div><div class="result-card"><span>F1-Score</span><b>0.923</b></div></div>
+      <div class="curve-title">训练过程曲线</div>
+      <div class="chartbox">
+        <div class="legend2"><span><i></i>训练集准确率</span><span><i class="blue"></i>验证集准确率</span></div>
+        <svg class="chartsvg" viewBox="0 0 560 150" preserveAspectRatio="none">
+          <defs><linearGradient id="bluefade" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#2b7de9" stop-opacity=".18"/><stop offset="100%" stop-color="#2b7de9" stop-opacity=".02"/></linearGradient></defs>
+          <g stroke="#e5e7eb" stroke-width="1">
+            <line x1="45" y1="20" x2="545" y2="20"/><line x1="45" y1="52" x2="545" y2="52"/><line x1="45" y1="84" x2="545" y2="84"/><line x1="45" y1="116" x2="545" y2="116"/>
+            <line x1="45" y1="20" x2="45" y2="126"/><line x1="110" y1="20" x2="110" y2="126"/><line x1="175" y1="20" x2="175" y2="126"/><line x1="240" y1="20" x2="240" y2="126"/><line x1="305" y1="20" x2="305" y2="126"/><line x1="370" y1="20" x2="370" y2="126"/><line x1="435" y1="20" x2="435" y2="126"/><line x1="500" y1="20" x2="500" y2="126"/>
+          </g>
+          <path d="M45 116 L70 108 L95 75 L120 55 L145 46 L170 40 L195 36 L220 31 L245 34 L270 25 L295 30 L320 24 L345 25 L370 22 L395 24 L420 19 L445 25 L470 17 L495 21 L520 19 L545 22 L545 126 L45 126 Z" fill="url(#bluefade)"/>
+          <path d="M45 116 L70 101 L95 68 L120 44 L145 36 L170 34 L195 28 L220 33 L245 24 L270 22 L295 25 L320 22 L345 24 L370 18 L395 20 L420 15 L445 21 L470 13 L495 18 L520 15 L545 17" fill="none" stroke="#ef1d27" stroke-width="3"/>
+          <path d="M45 116 L70 106 L95 79 L120 61 L145 53 L170 47 L195 41 L220 36 L245 35 L270 32 L295 29 L320 28 L345 27 L370 26 L395 25 L420 24 L445 24 L470 23 L495 22 L520 22 L545 21" fill="none" stroke="#2b7de9" stroke-width="3"/>
+          <g fill="#ef1d27"><circle cx="45" cy="116" r="2.5"/><circle cx="120" cy="44" r="2.5"/><circle cx="220" cy="33" r="2.5"/><circle cx="320" cy="22" r="2.5"/><circle cx="420" cy="15" r="2.5"/><circle cx="520" cy="15" r="2.5"/></g>
+          <g fill="#6b7280" font-size="11"><text x="9" y="24">100</text><text x="24" y="57">75</text><text x="24" y="89">50</text><text x="24" y="121">25</text><text x="44" y="145">0</text><text x="112" y="145">5</text><text x="174" y="145">10</text><text x="239" y="145">15</text><text x="304" y="145">20</text><text x="369" y="145">25</text><text x="434" y="145">30</text><text x="499" y="145">35</text><text x="536" y="145">40</text></g>
+          <text x="270" y="149" font-size="12" fill="#374151">Epoch</text>
+          <text x="5" y="76" font-size="12" fill="#374151" transform="rotate(-90 5 76)">准确率 (%)</text>
+        </svg>
+      </div>
+    </aside>
+  </div>
+
+  <div class="bottom">
+    <section class="panel version">
+      <div class="panel-head"><h3>模型版本管理（实验: 新闻分类_深度学习_v3）</h3></div>
+      <div class="version-table">
+        <table>
+          <thead><tr><th>版本号</th><th>模型名称</th><th>版本描述</th><th>准确率</th><th>文件大小</th><th>创建时间</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td>v3.2</td><td>model_v3.2.pth</td><td>优化学习率和批次大小</td><td>92.35%</td><td>45.2 MB</td><td>2024-06-01 14:25:30</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-download"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-shield"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>v3.1</td><td>model_v3.1.pth</td><td>调整隐藏层节点数</td><td>91.87%</td><td>44.8 MB</td><td>2024-06-01 13:15:22</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-download"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-shield"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+            <tr><td>v3.0</td><td>model_v3.0.pth</td><td>初始版本</td><td>90.12%</td><td>43.1 MB</td><td>2024-06-01 10:05:18</td><td><div class="ops"><span class="op"><svg class="icon sicon"><use href="#i-download"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-shield"/></svg></span><span class="op"><svg class="icon sicon"><use href="#i-more"/></svg></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel quick">
+      <div class="panel-head"><h3>快速操作</h3></div>
+      <div class="quick-list">
+        <div class="quick-item"><div class="qicon redbg"><svg class="icon sicon"><use href="#i-chart"/></svg></div><div><b>模型对比分析</b><p>对比不同模型性能</p></div><svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="quick-item"><div class="qicon bluebg"><svg class="icon sicon"><use href="#i-cloud"/></svg></div><div><b>模型部署</b><p>部署模型到生产环境</p></div><svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="quick-item"><div class="qicon greenbg"><svg class="icon sicon"><use href="#i-export"/></svg></div><div><b>模型导出</b><p>导出模型文件</p></div><svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+        <div class="quick-item"><div class="qicon orangebg"><svg class="icon sicon"><use href="#i-file"/></svg></div><div><b>实验报告</b><p>生成实验报告</p></div><svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+      </div>
+    </section>
+
+    <section class="panel tasks">
+      <div class="panel-head"><h3>最近运行任务</h3></div>
+      <div class="task-list">
+        <div class="task-row"><span class="tdot blue"></span><span>模型训练任务　　新闻分类_Transformer</span><span class="statusmini run">运行中</span><div class="tprogress"><i class="blue" style="width:65%"></i></div><span>65%</span></div>
+        <div class="task-row"><span class="tdot"></span><span>参数优化任务　　BiLSTM_参数调优</span><span class="statusmini">已完成</span><div class="tprogress"><i style="width:100%"></i></div><span>100%</span></div>
+        <div class="task-row"><span class="tdot"></span><span>模型评估任务　　模型性能评估</span><span class="statusmini">已完成</span><div class="tprogress"><i style="width:100%"></i></div><span>100%</span></div>
+        <div class="task-row"><span class="tdot"></span><span>数据预处理任务　数据清洗与特征提取</span><span class="statusmini">已完成</span><div class="tprogress"><i style="width:100%"></i></div><span>100%</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="footer-status">
+    <span>当前数据库：<i class="red-dot"></i>THUCNews_轻量版</span>
+    <span>系统状态：<i class="green-dot"></i><span style="color:#16a34a;font-weight:900">运行正常</span></span>
+    <span><i class="gray-dot"></i>最后更新：　2024-06-01 15:30:25</span>
+  </div>
+</section>
+</main>
+</div></div>
+
+<script>
+function scalePage(){
+  const w=2048,h=1152,app=document.querySelector(".app");
+  const s=Math.min(innerWidth/w,innerHeight/h);
+  app.style.left=(innerWidth-w*s)/2+"px";
+  app.style.top=(innerHeight-h*s)/2+"px";
+  app.style.transform=`scale(${s})`;
+}
+addEventListener("resize",scalePage);
+addEventListener("load",scalePage);
+scalePage();
+</script>
+
+  <script>window.API_BASE="";window.PAGE="experiments";</script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang=zh-CN><head><meta charset=utf-8>
+<title>中文新闻文本分类系统 - 分析报告</title>
+<style>body{font-family:'Microsoft YaHei',sans-serif;max-width:860px;margin:40px auto;color:#222}
+h1{color:#dc2626}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}
+th{background:#fde8e8}</style></head><body>
+<h1>中文新闻文本分类系统 · 分析报告</h1>
+<p>生成时间：2026-06-20 14:34:00　数据集类别数：10　训练 178952 / 测试 9989</p>
+
+<h2>模型性能（测试集）</h2>
+<table><tr><th>模型</th><th>Accuracy</th><th>Macro-F1</th></tr><tr><td>朴素贝叶斯</td><td>0.8826</td><td>0.8825</td></tr><tr><td>逻辑回归</td><td>0.9204</td><td>0.9204</td></tr></table>
+<p>最优模型：<b>逻辑回归</b></p>
+<h2>结论与建议</h2><ul><li>逻辑回归在各项指标上表现更优。</li><li>逻辑回归的 Macro-F1 最优（92.04%），适合作为最终部署模型。</li><li>已自动保存当前最优模型：逻辑回归。</li><li>主要混淆出现在「财经↔股票」，建议针对性增强这类样本。</li></ul>
+<p style="color:#888">类别：财经、房产、股票、教育、科技、社会、时政、体育、游戏、娱乐</p>
+</body></html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>中文新闻文本分类系统 - 新闻文本预测</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#fff;font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;color:#111827}
+.stage{width:100vw;height:100vh;overflow:hidden;position:relative;background:#fff}
+.app{width:2048px;height:1152px;position:absolute;left:0;top:0;transform-origin:top left;display:flex;background:radial-gradient(circle at 88% 8%,rgba(220,38,38,.052),transparent 28%),radial-gradient(circle at 8% 88%,rgba(220,38,38,.055),transparent 26%),#fff}
+.icon{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}.sicon{width:16px;height:16px}.fill{fill:currentColor;stroke:currentColor}
+
+/* sidebar */
+.sidebar{width:282px;height:1152px;flex-shrink:0;background:rgba(255,255,255,.96);border-right:none;position:relative;overflow:visible;z-index:10}
+.sidebar:after{content:"";position:absolute;right:0;top:84px;bottom:0;width:1px;background:#f0d7d7;pointer-events:none;z-index:12}
+.brand{height:84px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #f2eded;overflow:visible}
+.brand-logo{width:50px;height:50px;margin-right:16px;flex-shrink:0;position:relative;background:linear-gradient(145deg,#c90011,#ff5e66);box-shadow:0 12px 24px rgba(220,38,38,.23);clip-path:polygon(50% 0,92% 25%,92% 75%,50% 100%,8% 75%,8% 25%)}
+.brand-logo:before{content:"";position:absolute;inset:12px;border:3px solid #fff;border-radius:4px;transform:rotate(30deg)}
+.brand-logo:after{content:"";position:absolute;left:17px;top:17px;width:17px;height:17px;border:3px solid #fff;border-left:none;border-top:none;transform:rotate(30deg)}
+.brand-copy{width:560px;flex-shrink:0;overflow:visible}
+.brand h1{font-size:23px;line-height:1.08;font-weight:900;letter-spacing:-.4px;white-space:nowrap;color:#111827}
+.brand p{font-size:12.5px;color:#6b7280;margin-top:8px;white-space:nowrap}
+.menu{padding:22px 17px 0 15px}
+.menu-item{height:52px;display:flex;align-items:center;gap:17px;padding:0 20px;border-radius:8px;color:#374151;font-size:15.5px;font-weight:600;margin-bottom:7px;position:relative}
+.menu-item svg{width:22px;height:22px;color:#4b5563}
+.menu-item.active{background:linear-gradient(90deg,rgba(220,38,38,.16),rgba(220,38,38,.075));color:#dc151d;font-weight:900}
+.menu-item.active:before{content:"";position:absolute;left:-15px;width:4px;height:36px;background:#e10012;border-radius:0 6px 6px 0}
+.menu-item.active svg{fill:#e11d26;stroke:#e11d26}
+.orbital{position:absolute;left:23px;bottom:36px;width:236px;height:206px;pointer-events:none}
+.orbital .ring{position:absolute;left:3px;bottom:41px;width:228px;height:80px;border:1px solid rgba(239,68,68,.22);border-radius:50%;transform:rotate(-7deg)}
+.orbital .base{position:absolute;bottom:13px;left:52px;width:132px;height:41px;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.94) 0,rgba(220,38,38,.78) 43%,rgba(220,38,38,.05) 80%);filter:blur(2px)}
+.orbital .diamond{position:absolute;left:81px;top:42px;width:75px;height:75px;background:linear-gradient(145deg,#ffb5bb,#ff7c84 32%,#ef4444 70%,#dc2626);transform:rotate(45deg);border-radius:8px;box-shadow:0 20px 36px rgba(220,38,38,.28)}
+.orbital .diamond:after{content:"";position:absolute;inset:13px;background:rgba(255,255,255,.17);border-radius:6px}.dot{position:absolute;width:7px;height:7px;background:#ef1d27;border-radius:50%;box-shadow:0 0 12px rgba(220,38,38,.55)}
+.d1{left:15px;top:90px}.d2{right:14px;top:104px}.d3{right:48px;top:31px;width:6px;height:6px}.d4{left:3px;top:76px;width:4px;height:4px}
+
+/* top */
+.main{flex:1;height:1152px;overflow:hidden;position:relative}
+.topbar{height:84px;border-bottom:1px solid #f0d7d7;background:rgba(255,255,255,.88);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 34px 0 438px}
+.search{width:625px;height:48px;border:1.5px solid #f3a6aa;border-radius:8px;display:flex;align-items:center;padding:0 16px;color:#9ca3af;font-size:15px;background:rgba(255,255,255,.9);box-shadow:0 8px 26px rgba(220,38,38,.045)}
+.search svg{width:22px;height:22px;margin-right:13px;color:#6b7280}.kbd{margin-left:auto;width:50px;height:28px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;gap:5px;color:#374151;font-weight:800}
+.top-actions{display:flex;align-items:center;gap:20px}.pill{height:34px;padding:0 16px;border-radius:999px;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:900}.pill:before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}.green{color:#16a34a;background:#e9f8ee}.redpill{color:#dc2626;background:#fde8e8}
+.bell{position:relative;color:#374151}.bell:after{content:"5";position:absolute;right:-7px;top:-8px;width:16px;height:16px;background:#e60012;border-radius:50%;box-shadow:0 0 0 2px #fff;color:#fff;font-size:10px;line-height:16px;text-align:center;font-weight:900}
+.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#e90012,#b8000d);display:grid;place-items:center;color:white}.avatar svg{width:29px;height:29px;fill:white;stroke:white}.admin{height:38px;padding:0 14px;border-radius:999px;background:#fff2f2;display:flex;align-items:center;gap:9px;color:#374151;font-size:14px;font-weight:800}
+
+/* content */
+.content{height:1068px;padding:24px 28px 10px 30px;overflow:hidden}
+.page-title{height:76px;display:flex;flex-direction:column;justify-content:flex-start}
+.page-title h2{font-size:25px;font-weight:900;letter-spacing:-.3px;line-height:1.1;display:flex;align-items:center;gap:10px}
+.page-title p{font-size:14px;color:#374151;margin-top:14px}
+.info-dot{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.8px solid #6b7280;border-radius:50%;font-size:12px;color:#6b7280;font-weight:900}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:24px;margin-bottom:16px}
+.stat{height:104px;border:1.5px solid #f0d7d7;border-radius:10px;background:rgba(255,255,255,.95);box-shadow:0 12px 28px rgba(220,38,38,.035);position:relative;padding:24px 22px 18px 86px;overflow:hidden}
+.stat .circle{position:absolute;left:24px;top:27px;width:46px;height:46px;border-radius:50%;display:grid;place-items:center}
+.stat .circle svg{width:25px;height:25px}
+.stat .lab{font-size:13px;color:#374151;font-weight:800;margin-bottom:8px;line-height:18px}
+.stat .val{font-size:25px;font-weight:900;color:#111827;margin-bottom:6px;line-height:28px}
+.stat .sub{font-size:12.5px;color:#6b7280;line-height:16px}.up{color:#16a34a;font-weight:900}.down{color:#16a34a;font-weight:900}
+.bluebg{background:#eaf3ff;color:#1d7cf2}.greenbg{background:#eaf8ef;color:#16a34a}.purplebg{background:#f2e9ff;color:#7c3aed}.orangebg{background:#fff0e5;color:#f97316}.redbg{background:#ffe9e9;color:#e11d26}
+
+/* panels */
+.grid-main{display:grid;grid-template-columns:600px 560px 1fr;gap:14px;height:448px;margin-bottom:12px}
+.grid-bottom{display:grid;grid-template-columns:600px 560px 1fr;gap:14px;height:300px;margin-bottom:12px}
+.panel{border:1.5px solid #f2d6d6;border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 12px 30px rgba(220,38,38,.035);overflow:hidden;position:relative}
+.panel-pad{padding:0 16px 12px}
+.panel-title{height:48px;display:flex;align-items:center;justify-content:space-between;color:#e11d26;font-size:17px;font-weight:900}
+.panel-title h3{font-size:17px;font-weight:900;display:flex;align-items:center;gap:8px;color:#111827}.panel-title.red h3{color:#e11d26}.panel-title svg{color:#e11d26}
+
+/* input */
+.input-panel{padding:0 16px 14px}
+.textarea{height:156px;border:1px solid #e5e7eb;border-radius:7px;background:#fff;position:relative;margin-bottom:8px}
+.textarea p{font-size:14px;line-height:25px;color:#1f2937;padding:14px 16px}
+.count{position:absolute;right:14px;bottom:9px;color:#6b7280;font-size:12px}
+.clear{height:26px;display:flex;align-items:center;gap:9px;color:#374151;font-size:12px;margin-bottom:10px}
+.checksmall{width:14px;height:14px;border:1px solid #d1d5db;border-radius:3px;background:#fff}
+.form-row label{display:block;font-size:13px;color:#374151;font-weight:900;margin-bottom:7px}
+.select-wide{height:34px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 13px;color:#374151;font-size:13px;margin-bottom:14px}
+.refresh-model{width:122px;height:34px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-size:13px;font-weight:800;margin-left:14px}
+.model-row{display:grid;grid-template-columns:1fr 128px;gap:0}
+.options{height:42px}.options-title{font-size:13px;color:#374151;font-weight:900;margin-bottom:8px}.opt-line{display:flex;align-items:center;gap:28px;font-size:12.5px;color:#374151}.opt{display:flex;align-items:center;gap:8px}.checked{width:15px;height:15px;border-radius:3px;background:#e60012;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:900}.unchecked{width:15px;height:15px;border-radius:3px;border:1px solid #d1d5db;background:#fff}
+.actions{height:42px;display:flex;align-items:center;gap:22px;margin-top:10px}.btn-primary,.btn-ghost{height:36px;border-radius:6px;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px}.btn-primary{width:160px;background:linear-gradient(180deg,#ef2b2b,#dc111b);color:#fff;border:none}.btn-ghost{width:160px;background:#fff;color:#374151;border:1px solid #e5e7eb}
+
+/* result */
+.result-panel{padding:0 16px 12px}
+.result-card{height:82px;border-radius:8px;background:linear-gradient(90deg,#fff1f1,#fff7f7);display:grid;grid-template-columns:1fr 150px;align-items:center;padding:0 20px;margin-bottom:18px}
+.pred-main{font-size:15px;font-weight:900}.pred-main span{font-size:26px;color:#e11d26;margin-left:15px}.confidence{text-align:right;color:#111827;font-size:13px;font-weight:900}.confidence b{font-size:22px;color:#e11d26}
+.pred-meta{grid-column:1 / 3;display:grid;grid-template-columns:1fr 150px;color:#4b5563;font-size:12px;margin-top:-18px}.pred-meta b{color:#374151}
+.dist-title{font-size:14px;font-weight:900;margin-bottom:10px}
+.dist{height:214px}.dist-row{height:21px;display:grid;grid-template-columns:42px 1fr 58px;align-items:center;gap:10px;font-size:12px;color:#111827}.track{height:5px;background:#e5e7eb;border-radius:999px;overflow:hidden}.track i{display:block;height:100%;background:#e11d26;border-radius:999px}.dist-val{text-align:right;font-size:12px;color:#111827}
+.fullbtn{height:32px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;color:#374151;font-weight:800}
+
+/* keyword table */
+.keyword{padding:0 16px 12px}
+.ktable{height:326px;border:1px solid #edf0f4;border-radius:8px;overflow:hidden}
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+.ktable th{height:34px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#374151;font-size:12.5px;text-align:center;font-weight:900}
+.ktable td{height:29px;border-bottom:1px solid #edf0f4;color:#1f2937;font-size:12.5px;text-align:center;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ktable th:first-child,.ktable td:first-child{text-align:left;padding-left:38px}
+.bottom-btn{height:32px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;color:#374151;font-weight:800;margin-top:12px}
+
+/* tables bottom */
+.table-panel{padding:0 16px 12px}
+.panel-title .refresh{color:#111827}
+.simple-table{height:204px;border:1px solid #edf0f4;border-radius:8px;overflow:hidden}
+.simple-table th{height:31px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#374151;font-size:12px;text-align:center;font-weight:900}
+.simple-table td{height:33px;border-bottom:1px solid #edf0f4;color:#1f2937;font-size:12px;text-align:center;padding:0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.simple-table td:first-child,.simple-table th:first-child{text-align:left}
+.simple-table.history td:first-child,.simple-table.history th:first-child{width:230px}.simple-table.history td:nth-child(2){color:#111827}.eye{color:#4b5563}
+.link-btn{height:32px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;color:#374151;font-weight:800;margin-top:10px}
+
+/* donut */
+.donut-panel{padding:0 16px 12px}
+.donut-area{height:206px;display:grid;grid-template-columns:260px 1fr;align-items:center}
+.donut{width:178px;height:178px;border-radius:50%;background:conic-gradient(#ef1d27 0 32.45%,#ff8a19 32.45% 50.68%,#ffba3b 50.68% 66.35%,#2bbd6e 66.35% 78.8%,#4897e8 78.8% 87.56%,#8b5cf6 87.56% 93.68%,#d1d5db 93.68% 100%);position:relative;margin-left:44px}
+.donut:after{content:"";position:absolute;inset:50px;background:#fff;border-radius:50%}
+.legend-cat{font-size:13px;color:#374151}
+.legend-cat div{height:27px;display:grid;grid-template-columns:14px 42px 1fr;align-items:center;gap:8px}.catdot{width:9px;height:9px;border-radius:50%}.c1{background:#ef1d27}.c2{background:#ff8a19}.c3{background:#ffba3b}.c4{background:#2bbd6e}.c5{background:#4897e8}.c6{background:#8b5cf6}.c7{background:#d1d5db}
+.footer-row{height:40px;display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.status-line{display:flex;align-items:center;gap:40px;font-size:13px;color:#4b5563}.green-dot{width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;margin:0 7px}
+.action-right{display:flex;align-items:center;gap:42px}.exportbtn,.batchbtn{height:40px;border-radius:6px;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:9px}.exportbtn{width:186px;background:#fff;border:1px solid #e5e7eb;color:#374151}.batchbtn{width:186px;background:linear-gradient(180deg,#ef2b2b,#dc111b);border:none;color:#fff}
+
+/* 顶部统计卡片：文字整体稍微上移，其他区域不动 */
+.stats .stat{
+  padding-top:18px !important;
+}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;visibility:hidden">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V21h13V10.5"/><path d="M9.5 21v-6h5v6"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v12c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M9 5v14"/></symbol>
+<symbol id="i-tf" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h7M10.5 9v7M15 9h4M15 12h3"/></symbol>
+<symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 5a3 3 0 0 0-5 2.2A3.5 3.5 0 0 0 5 14a3 3 0 0 0 4 4"/><path d="M15 5a3 3 0 0 1 5 2.2A3.5 3.5 0 0 1 19 14a3 3 0 0 1-4 4"/><path d="M9 5v13M15 5v13"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 17V9M12 17V5M17 17v-7"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></symbol>
+<symbol id="i-archive" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M3 4h18v3H3zM9 11h6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 5-3.4 8.2-8 9-4.6-.8-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="i-accuracy" viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M8 16l3-4 3 2 3-6"/><path d="M16 8h2v2"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-13.7 5.7"/><path d="M4 12A8 8 0 0 1 17.7 6.3"/><path d="M18 2v5h-5"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2"/><path d="M15 15a5 5 0 0 1 6 5"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+<symbol id="i-rocket" viewBox="0 0 24 24"><path d="M14 4c3 0 5 2 6 5-3 1-6 3-9 6l-2 2-2-2 2-2c3-3 5-6 6-9z"/><path d="M5 19c1.5-.2 3-1 4-2"/><path d="M14 10h.01"/></symbol>
+</svg>
+
+<div class="stage"><div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-logo"></div><div class="brand-copy"><h1>中文新闻文本分类系统</h1><p>基于 TF-IDF、机器学习与深度学习的智能分析平台</p></div></div>
+  <nav class="menu">
+    <div class="menu-item"><svg class="icon"><use href="#i-home"/></svg>首页总览</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-db"/></svg>数据集管理</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-table"/></svg>数据预览与清洗</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-tf"/></svg>TF-IDF 特征提取</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-brain"/></svg>模型训练</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-sliders"/></svg>深度学习参数优化</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-chart"/></svg>模型评价与可视化</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-alert"/></svg>错误样本与关键词解释</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-archive"/></svg>实验记录与模型管理</div>
+    <div class="menu-item active"><svg class="icon"><use href="#i-send"/></svg>新闻文本预测</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-file"/></svg>报告导出</div>
+  </nav>
+  <div class="orbital"><div class="ring"></div><div class="diamond"></div><div class="base"></div><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div></div>
+</aside>
+
+<main class="main">
+<header class="topbar">
+  <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>输入内容 / 搜索功能...</span><div class="kbd">⌘ K</div></div>
+  <div class="top-actions"><div class="pill green">系统在线</div><div class="pill redpill">模型已加载</div><div class="bell"><svg class="icon"><use href="#i-bell"/></svg></div><div class="avatar"><svg class="icon"><use href="#i-user"/></svg></div><div class="admin">管理员 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+</header>
+
+<section class="content">
+  <div class="page-title"><h2>新闻文本预测 <span class="info-dot">i</span></h2><p>输入新闻文本内容，使用训练好的模型进行类别预测，并提供详细的预测结果与置信度分析。</p></div>
+
+  <div class="stats">
+    <div class="stat"><div class="circle redbg"><svg class="icon"><use href="#i-shield"/></svg></div><div class="lab">今日预测次数</div><div class="val">1,286</div><div class="sub">较昨日 <span class="up">+18.3% ↑</span></div></div>
+    <div class="stat"><div class="circle orangebg"><svg class="icon"><use href="#i-accuracy"/></svg></div><div class="lab">本周预测次数</div><div class="val">8,952</div><div class="sub">较上周 <span class="up">+12.6% ↑</span></div></div>
+    <div class="stat"><div class="circle purplebg"><svg class="icon"><use href="#i-brain"/></svg></div><div class="lab">模型准确率</div><div class="val">92.35%</div><div class="sub">较上次 <span class="up">+1.25% ↑</span></div></div>
+    <div class="stat"><div class="circle bluebg"><svg class="icon"><use href="#i-clock"/></svg></div><div class="lab">平均响应时间</div><div class="val">0.68s</div><div class="sub">较上次 <span class="down">-0.12s ↓</span></div></div>
+    <div class="stat"><div class="circle bluebg"><svg class="icon"><use href="#i-grid"/></svg></div><div class="lab">支持类别数</div><div class="val">10</div><div class="sub">新闻类别覆盖</div></div>
+    <div class="stat"><div class="circle greenbg"><svg class="icon"><use href="#i-shield"/></svg></div><div class="lab">累计预测次数</div><div class="val">45,892</div><div class="sub">系统累计</div></div>
+  </div>
+
+  <div class="grid-main">
+    <section class="panel input-panel">
+      <div class="panel-title red"><h3>输入新闻文本</h3></div>
+      <div class="textarea"><p>2024年6月1日，某科技公司发布了新一代人工智能产品，该产品在图像识别、自然语言处理等多个领域取得了突破性进展。公司表示，该产品将大幅提升用户体验，推动行业发展。分析师认为，这一发布将对相关产业链产生深远影响，建议投资者关注相关概念股的投资机会。</p><div class="count">123 / 2000</div></div>
+      <div class="clear"><span class="checksmall"></span>清空内容</div>
+      <div class="form-row"><label>选择模型</label><div class="model-row"><div class="select-wide">新闻分类_深度学习_v3（推荐）<svg class="icon sicon"><use href="#i-chevron"/></svg></div><div class="refresh-model"><svg class="icon sicon"><use href="#i-refresh"/></svg>刷新模型列表</div></div></div>
+      <div class="options"><div class="options-title">高级选项：</div><div class="opt-line"><span class="opt"><i class="checked">✓</i>显示关键词解释</span><span class="opt"><i class="unchecked"></i>显示相似新闻</span><span class="opt"><i class="checked">✓</i>保存预测记录</span></div></div>
+      <div class="actions"><button class="btn-primary"><svg class="icon sicon"><use href="#i-play"/></svg>开始预测</button><button class="btn-ghost"><svg class="icon sicon"><use href="#i-refresh"/></svg>重置输入</button></div>
+    </section>
+
+    <section class="panel result-panel">
+      <div class="panel-title red"><h3>预测结果</h3></div>
+      <div class="result-card">
+        <div class="pred-main">预测类别：<span>科技</span></div>
+        <div class="confidence">置信度： <b>95.23%</b></div>
+        <div class="pred-meta"><span><b>模型：</b> 新闻分类_深度学习_v3</span><span><b>预测时间：</b> 2024-06-01 14:52:33</span></div>
+      </div>
+      <div class="dist-title">所有类别概率分布</div>
+      <div class="dist">
+        <div class="dist-row"><span>科技</span><div class="track"><i style="width:95.23%"></i></div><span class="dist-val">95.23%</span></div>
+        <div class="dist-row"><span>财经</span><div class="track"><i style="width:2.15%"></i></div><span class="dist-val">2.15%</span></div>
+        <div class="dist-row"><span>娱乐</span><div class="track"><i style="width:.98%"></i></div><span class="dist-val">0.98%</span></div>
+        <div class="dist-row"><span>体育</span><div class="track"><i style="width:.56%"></i></div><span class="dist-val">0.56%</span></div>
+        <div class="dist-row"><span>社会</span><div class="track"><i style="width:.42%"></i></div><span class="dist-val">0.42%</span></div>
+        <div class="dist-row"><span>时政</span><div class="track"><i style="width:.38%"></i></div><span class="dist-val">0.38%</span></div>
+        <div class="dist-row"><span>教育</span><div class="track"><i style="width:.16%"></i></div><span class="dist-val">0.16%</span></div>
+        <div class="dist-row"><span>房产</span><div class="track"><i style="width:.08%"></i></div><span class="dist-val">0.08%</span></div>
+        <div class="dist-row"><span>汽车</span><div class="track"><i style="width:.03%"></i></div><span class="dist-val">0.03%</span></div>
+        <div class="dist-row"><span>其他</span><div class="track"><i style="width:.01%"></i></div><span class="dist-val">0.01%</span></div>
+      </div>
+      <div class="fullbtn">查看详细结果</div>
+    </section>
+
+    <section class="panel keyword">
+      <div class="panel-title"><h3>关键词解释（Top 10）</h3></div>
+      <div class="ktable"><table>
+        <thead><tr><th>关键词</th><th>权重</th><th>贡献度</th><th>出现位置</th></tr></thead>
+        <tbody>
+          <tr><td>人工智能</td><td>0.156</td><td>18.23%</td><td>12</td></tr>
+          <tr><td>新一代</td><td>0.128</td><td>14.95%</td><td>8</td></tr>
+          <tr><td>图像识别</td><td>0.095</td><td>11.08%</td><td>15</td></tr>
+          <tr><td>自然语言处理</td><td>0.089</td><td>10.36%</td><td>18</td></tr>
+          <tr><td>科技公司</td><td>0.076</td><td>8.87%</td><td>3</td></tr>
+          <tr><td>产品发布</td><td>0.068</td><td>7.92%</td><td>5</td></tr>
+          <tr><td>突破性进展</td><td>0.057</td><td>6.63%</td><td>20</td></tr>
+          <tr><td>用户体验</td><td>0.045</td><td>5.23%</td><td>28</td></tr>
+          <tr><td>行业发展</td><td>0.032</td><td>3.72%</td><td>32</td></tr>
+          <tr><td>产业链</td><td>0.025</td><td>2.89%</td><td>45</td></tr>
+        </tbody>
+      </table></div>
+      <div class="bottom-btn">查看更多关键词分析</div>
+    </section>
+  </div>
+
+  <div class="grid-bottom">
+    <section class="panel table-panel">
+      <div class="panel-title"><h3>相似新闻推荐</h3><span class="refresh"><svg class="icon sicon"><use href="#i-refresh"/></svg></span></div>
+      <div class="simple-table"><table>
+        <thead><tr><th>标题</th><th>类别</th><th>相似度</th><th>发布时间</th></tr></thead>
+        <tbody>
+          <tr><td>某科技公司发布新一代AI芯片，性能提升50%</td><td>科技</td><td>92.35%</td><td>2024-05-31</td></tr>
+          <tr><td>人工智能技术突破，推动产业智能化升级</td><td>科技</td><td>89.12%</td><td>2024-05-30</td></tr>
+          <tr><td>科技企业加大研发投入，布局未来技术赛道</td><td>科技</td><td>86.78%</td><td>2024-05-29</td></tr>
+          <tr><td>AI应用场景不断拓展，赋能千行百业发展</td><td>科技</td><td>83.45%</td><td>2024-05-28</td></tr>
+          <tr><td>新一代智能产品发布，引领科技创新潮流</td><td>科技</td><td>81.23%</td><td>2024-05-27</td></tr>
+        </tbody>
+      </table></div>
+      <div class="link-btn">查看更多相似新闻</div>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="panel-title red"><h3>预测历史记录</h3><span class="refresh"><svg class="icon sicon"><use href="#i-refresh"/></svg></span></div>
+      <div class="simple-table history"><table>
+        <thead><tr><th>输入内容（摘要）</th><th>预测类别</th><th>置信度</th><th>预测时间</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td>我国成功发射新一代通信卫星，技术指标...</td><td>科技</td><td>94.56%</td><td>06-01 14:48</td><td class="eye"><svg class="icon sicon"><use href="#i-eye"/></svg></td></tr>
+          <tr><td>股市收盘：沪指上涨1.2%，成交额创新...</td><td>财经</td><td>91.23%</td><td>06-01 14:45</td><td class="eye"><svg class="icon sicon"><use href="#i-eye"/></svg></td></tr>
+          <tr><td>电影《未来之城》票房突破10亿，创历史...</td><td>娱乐</td><td>89.78%</td><td>06-01 14:42</td><td class="eye"><svg class="icon sicon"><use href="#i-eye"/></svg></td></tr>
+          <tr><td>世界杯预选赛：中国队3-1战胜对手，晋级...</td><td>体育</td><td>93.45%</td><td>06-01 14:38</td><td class="eye"><svg class="icon sicon"><use href="#i-eye"/></svg></td></tr>
+          <tr><td>教育部发布新规，加强中小学课后服务管理</td><td>教育</td><td>87.12%</td><td>06-01 14:35</td><td class="eye"><svg class="icon sicon"><use href="#i-eye"/></svg></td></tr>
+        </tbody>
+      </table></div>
+      <div class="link-btn">查看更多历史记录</div>
+    </section>
+
+    <section class="panel donut-panel">
+      <div class="panel-title"><h3>类别分布统计</h3></div>
+      <div class="donut-area">
+        <div class="donut"></div>
+        <div class="legend-cat">
+          <div><i class="catdot c1"></i><span>科技</span><b>32.45%（2,856）</b></div>
+          <div><i class="catdot c2"></i><span>财经</span><b>18.23%（1,602）</b></div>
+          <div><i class="catdot c3"></i><span>娱乐</span><b>15.67%（1,377）</b></div>
+          <div><i class="catdot c4"></i><span>体育</span><b>12.45%（1,094）</b></div>
+          <div><i class="catdot c5"></i><span>社会</span><b>8.76%（770）</b></div>
+          <div><i class="catdot c6"></i><span>时政</span><b>6.12%（538）</b></div>
+          <div><i class="catdot c7"></i><span>其他</span><b>6.32%（555）</b></div>
+        </div>
+      </div>
+      <div class="link-btn">查看详细统计</div>
+    </section>
+  </div>
+
+  <div class="footer-row">
+    <div class="status-line"><span>当前模型：<i class="green-dot"></i>新闻分类_深度学习_v3</span><span>模型状态：<i class="green-dot"></i><b style="color:#16a34a">运行正常</b></span><span>最后更新：　2024-06-01 14:52:33</span></div>
+    <div class="action-right"><button class="exportbtn"><svg class="icon sicon"><use href="#i-export"/></svg>导出预测结果</button><button class="batchbtn"><svg class="icon sicon"><use href="#i-rocket"/></svg>批量预测</button></div>
+  </div>
+</section>
+</main>
+</div></div>
+
+<script>
+function scalePage(){
+  const w=2048,h=1152,app=document.querySelector(".app");
+  const s=Math.min(innerWidth/w,innerHeight/h);
+  app.style.left=(innerWidth-w*s)/2+"px";
+  app.style.top=(innerHeight-h*s)/2+"px";
+  app.style.transform=`scale(${s})`;
+}
+addEventListener("resize",scalePage);
+addEventListener("load",scalePage);
+scalePage();
+</script>
+
+  <script>window.API_BASE="";window.PAGE="prediction";</script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

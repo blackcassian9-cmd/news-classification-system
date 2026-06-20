@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>中文新闻文本分类系统 - TF-IDF 特征提取</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#fff}
+body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;color:#111827}
+.page-scale{width:100vw;height:100vh;overflow:hidden;position:relative;background:#fff}
+.app{
+  width:2048px;height:1152px;min-width:2048px;min-height:1152px;
+  transform-origin:top left;position:absolute;left:0;top:0;display:flex;
+  background:
+    radial-gradient(circle at 88% 8%,rgba(214,30,30,.08),transparent 26%),
+    radial-gradient(circle at 12% 88%,rgba(214,30,30,.055),transparent 24%),
+    #fff;
+}
+
+/* ===== 通用 SVG ===== */
+.icon{width:24px;height:24px;display:inline-block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.small-icon{width:16px;height:16px}
+.fill-icon{fill:currentColor;stroke:currentColor}
+
+/* ===== 左侧栏：保持主界面风格 ===== */
+/* 标题区不显示竖向分割线：竖线只从导航栏区域开始 */
+.sidebar{width:288px;height:1152px;border-right:none;background:rgba(255,255,255,.94);position:relative;display:flex;flex-direction:column;flex-shrink:0;overflow:visible;z-index:20}
+.sidebar:after{content:"";position:absolute;right:0;top:88px;bottom:0;width:1px;background:#e5e7eb;pointer-events:none;z-index:12}
+.brand{height:88px;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid #edf0f4;overflow:visible;position:relative;z-index:30}
+.brand-logo{
+  width:58px;height:58px;border-radius:18px;margin-right:16px;
+  background:linear-gradient(145deg,#c8121b,#ff6b70);position:relative;
+  box-shadow:0 12px 24px rgba(220,38,38,.25);
+  clip-path:polygon(50% 0,92% 25%,92% 75%,50% 100%,8% 75%,8% 25%);
+  flex-shrink:0;
+}
+.brand-logo:before{content:"";position:absolute;inset:12px;border:3px solid #fff;border-radius:4px;transform:rotate(30deg)}
+.brand-logo:after{content:"";position:absolute;width:22px;height:22px;left:18px;top:18px;border:3px solid #fff;border-top:none;border-left:none;transform:rotate(30deg)}
+.brand-copy{width:560px;flex-shrink:0;overflow:visible;position:relative;z-index:31}
+.brand h1{font-size:25px;line-height:1.08;color:#111827;font-weight:900;letter-spacing:-.6px;white-space:nowrap;overflow:visible;text-rendering:geometricPrecision}
+.brand p{margin-top:7px;color:#6b7280;font-size:13px;white-space:nowrap;overflow:visible;text-rendering:geometricPrecision}
+.menu{padding:23px 17px 0 15px}
+.menu-item{height:54px;display:flex;align-items:center;padding:0 21px;border-radius:8px;color:#4b5563;font-size:16.5px;font-weight:500;gap:17px;margin-bottom:7px;position:relative}
+.menu-item svg{width:23px;height:23px;stroke-width:1.8;color:#4b5563}
+.menu-item.active{background:linear-gradient(90deg,rgba(220,38,38,.14),rgba(220,38,38,.05));color:#dc1f1f;font-weight:900}
+.menu-item.active:before{content:"";position:absolute;left:-15px;width:4px;height:36px;border-radius:0 6px 6px 0;background:#dc1f1f}
+.menu-item.active svg{color:#dc1f1f;fill:#dc1f1f;stroke:#dc1f1f}
+.orbital{position:absolute;bottom:43px;left:18px;width:250px;height:198px;pointer-events:none}
+.orbital .base{position:absolute;bottom:9px;left:63px;width:125px;height:37px;background:radial-gradient(circle,rgba(239,68,68,.95) 0%,rgba(220,38,38,.8) 42%,rgba(220,38,38,.06) 78%);border-radius:50%;filter:blur(2px);box-shadow:0 22px 42px rgba(220,38,38,.18)}
+.orbital .ring{position:absolute;left:15px;bottom:39px;width:222px;height:76px;border:1px solid rgba(239,68,68,.24);border-radius:50%;transform:rotate(-7deg)}
+.orbital .diamond{position:absolute;left:92px;top:36px;width:70px;height:70px;background:linear-gradient(145deg,#ffb7bc 0%,#ff8087 32%,#ef4444 70%,#dc2626 100%);transform:rotate(45deg);border-radius:8px;box-shadow:0 18px 36px rgba(220,38,38,.28);opacity:.95}
+.orbital .diamond:before{content:"";position:absolute;left:-10px;top:10px;width:70px;height:70px;background:linear-gradient(145deg,rgba(255,209,212,.95),rgba(255,140,148,.88));clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);opacity:.38;filter:blur(.3px)}
+.orbital .diamond:after{content:"";position:absolute;inset:11px;background:rgba(255,255,255,.15);border-radius:5px}
+.orbital .dot{position:absolute;width:7px;height:7px;background:#ef4444;border-radius:50%;box-shadow:0 0 12px rgba(220,38,38,.55)}
+.dot.d1{left:20px;top:82px}.dot.d2{right:28px;top:98px}.dot.d3{right:55px;top:40px;width:6px;height:6px}
+
+/* ===== 顶部栏 ===== */
+.main{flex:1;height:1152px;overflow:hidden;display:flex;flex-direction:column;position:relative;z-index:1}
+.topbar{height:88px;border-bottom:1px solid #edf0f4;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 410px;background:rgba(255,255,255,.83);backdrop-filter:blur(12px)}
+.search{width:642px;height:48px;border:1.5px solid #f3a7aa;border-radius:8px;display:flex;align-items:center;padding:0 17px;color:#9ca3af;font-size:15px;box-shadow:0 8px 26px rgba(220,38,38,.05);background:rgba(255,255,255,.85);flex-shrink:0}
+.search svg{width:22px;height:22px;margin-right:14px;color:#6b7280}
+.top-actions{display:flex;align-items:center;gap:20px;margin-left:18px}
+.pill{height:36px;padding:0 17px;border-radius:999px;display:flex;align-items:center;gap:9px;font-weight:900;font-size:14px;white-space:nowrap}
+.pill.green{color:#16a34a;background:#e9f8ee}.pill.red{color:#dc2626;background:#fde8e8}
+.pill-dot{width:10px;height:10px;border-radius:50%;background:currentColor}
+.bell{position:relative;color:#374151;width:34px;height:34px;display:grid;place-items:center}
+.bell svg{width:24px;height:24px}.bell:after{content:"3";position:absolute;right:-1px;top:-4px;width:16px;height:16px;background:#e60012;border-radius:50%;box-shadow:0 0 0 3px #fff;color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center}
+.admin-pill{height:48px;padding:0 15px 0 8px;border-radius:999px;background:#fff1f1;color:#374151;display:flex;align-items:center;gap:10px;font-weight:900;font-size:14px}
+.avatar{width:42px;height:42px;background:linear-gradient(145deg,#e90012,#b8000d);border-radius:50%;display:grid;place-items:center;color:#fff;box-shadow:0 10px 24px rgba(220,38,38,.24)}
+.avatar svg{width:30px;height:30px;fill:#fff;stroke:#fff}
+
+/* ===== 内容区 ===== */
+.content{height:1064px;padding:28px 46px 22px 32px;overflow:hidden}
+.page-head{height:75px;display:flex;align-items:flex-start;justify-content:space-between}
+.page-title h2{font-size:28px;font-weight:900;color:#111827;line-height:1.2;display:flex;align-items:center;gap:10px}
+.info-dot{width:19px;height:19px;border:2px solid #6b7280;border-radius:50%;font-size:12px;display:grid;place-items:center;color:#6b7280;font-weight:900}
+.page-title p{margin-top:15px;font-size:14px;color:#374151}
+.steps{display:flex;align-items:center;gap:16px;padding-top:12px;color:#6b7280;font-size:14px}
+.step{display:flex;align-items:center;gap:9px;font-weight:700}
+.step .num{width:28px;height:28px;border-radius:50%;background:#f3f4f6;color:#4b5563;display:grid;place-items:center;font-weight:900;border:1px solid #d1d5db}
+.step.active{color:#dc111b}.step.active .num{background:#d9151f;color:#fff;border:none;box-shadow:0 7px 14px rgba(220,38,38,.2)}
+.step-line{width:68px;height:2px;background:#f0caca}
+
+.body-grid{display:grid;grid-template-columns:306px 1fr;gap:16px;height:830px}
+.left-col{display:flex;flex-direction:column;gap:16px}
+.panel{border:1.5px solid #f3a6aa;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 16px 36px rgba(220,38,38,.046);overflow:hidden;position:relative}
+.panel-title{height:42px;display:flex;align-items:center;gap:10px;padding:0 18px;font-size:17px;font-weight:900;color:#dc111b}
+.param-panel{height:532px;padding-bottom:14px}
+.form{padding:6px 17px 0}
+.form-row{height:45px;display:grid;grid-template-columns:122px 1fr;align-items:center;color:#111827;font-size:14px}
+.form-label{display:flex;align-items:center;gap:9px}
+.info-small{width:14px;height:14px;border:1.4px solid #9ca3af;border-radius:50%;font-size:9px;color:#6b7280;display:grid;place-items:center;font-weight:900}
+.input,.select{height:35px;border:1px solid #e1e5ec;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 11px;color:#111827;font-size:14px;font-weight:700}
+.switch{width:39px;height:22px;background:#df161f;border-radius:999px;position:relative;box-shadow:0 2px 8px rgba(220,38,38,.16)}
+.switch:after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.param-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 17px 0}
+.primary-btn,.ghost-btn{height:38px;border-radius:7px;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px}
+.primary-btn{background:linear-gradient(180deg,#ef2b2b,#dc111b);color:#fff;border:none;box-shadow:0 9px 18px rgba(220,38,38,.19)}
+.ghost-btn{background:#fff;border:1px solid #dfe4ec;color:#374151}
+
+.dataset-panel{height:282px}
+.dataset-table{margin:8px 16px 0;border:1px solid #e5e7eb;border-radius:7px;overflow:hidden}
+.dataset-row{height:48px;display:grid;grid-template-columns:1fr 100px;align-items:center;padding:0 16px;border-bottom:1px solid #edf0f4;font-size:14px;color:#374151}
+.dataset-row:last-child{border-bottom:none}
+.dataset-row b{font-weight:900;color:#111827;text-align:right}
+
+/* 右侧主内容 */
+.right-col{min-width:0}
+.feature-panel{height:174px;padding-bottom:13px}
+.feature-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding:20px 18px 0}
+.feature-card{height:79px;border:1px solid #e5e7eb;border-radius:9px;background:#fff;display:grid;grid-template-columns:52px 1fr;align-items:center;padding:0 12px;box-shadow:0 8px 19px rgba(17,24,39,.03)}
+.ficon{width:44px;height:44px;border-radius:10px;display:grid;place-items:center}
+.ficon.blue{background:#eaf2ff;color:#2563eb}.ficon.purple{background:#f1ebff;color:#7c3aed}.ficon.green{background:#effbeb;color:#22c55e}.ficon.red{background:#fff0f0;color:#ef4444}.ficon.orange{background:#fff7e8;color:#f97316}
+.ficon svg{width:30px;height:30px}
+.feature-card .label{font-size:12px;color:#4b5565;margin-bottom:6px}
+.feature-card .value{font-size:18px;color:#111827;font-weight:900;white-space:nowrap}
+.feature-card .sub{font-size:11px;color:#6b7280;margin-top:4px;white-space:nowrap}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:14px;margin-top:14px;height:300px}
+.chart-panel{padding:0 18px 14px}
+.chart-title{height:44px;display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900;color:#111827}
+.chart-area{height:230px;position:relative;border-radius:8px;background:linear-gradient(to bottom,transparent 0,transparent 48px,#edf0f4 49px,transparent 50px,transparent 96px,#edf0f4 97px,transparent 98px,transparent 144px,#edf0f4 145px,transparent 146px,transparent 192px,#edf0f4 193px,transparent 194px)}
+.ylabels{position:absolute;left:0;top:8px;width:48px;height:205px;color:#4b5565;font-size:12px;text-align:right}
+.ylabels span{position:absolute;right:6px}.y1{top:0}.y2{top:39px}.y3{top:79px}.y4{top:120px}.y5{top:160px}.y6{top:198px}
+.axis-label{position:absolute;left:235px;bottom:-10px;color:#4b5565;font-size:12px}
+.vlabel{position:absolute;left:-5px;top:82px;color:#4b5565;font-size:12px;writing-mode:vertical-rl;transform:rotate(180deg)}
+.line-svg{position:absolute;left:55px;right:20px;top:12px;height:200px;width:calc(100% - 75px)}
+.bar-chart{position:absolute;left:55px;right:20px;bottom:31px;height:190px;display:flex;align-items:flex-end;gap:5px}
+.bar{flex:1;background:linear-gradient(180deg,#ff6f74,#ef2b32);border-radius:2px 2px 0 0;box-shadow:0 3px 7px rgba(220,38,38,.1)}
+.xnums{position:absolute;left:55px;right:20px;bottom:8px;display:flex;justify-content:space-between;color:#4b5565;font-size:12px}
+
+.lower-grid{display:grid;grid-template-columns:1.05fr .82fr .82fr;gap:14px;margin-top:14px;height:326px}
+.keyword-panel,.donut-panel,.stats-panel{padding:0 18px 14px}
+.keyword-table,.stats-table{width:100%;border-collapse:collapse;font-size:13px;color:#1f2937}
+.keyword-table th,.stats-table th{height:34px;background:#fff;color:#374151;border-bottom:1px solid #e5e7eb;font-weight:800}
+.keyword-table td,.stats-table td{height:28px;text-align:center;border-bottom:1px solid #edf0f4}
+.more{height:28px;display:grid;place-items:center;color:#dc111b;font-size:13px;font-weight:900;margin-top:4px}
+.donut-wrap{height:232px;display:grid;grid-template-columns:180px 1fr;align-items:center}
+.big-donut{width:150px;height:150px;border-radius:50%;background:conic-gradient(#ef2222 0 45.67%,#ff9214 45.67% 84.79%,#ffb33e 84.79% 97.14%,#4ade80 97.14% 100%);position:relative;justify-self:center;box-shadow:0 8px 20px rgba(220,38,38,.08)}
+.big-donut:after{content:"";position:absolute;inset:42px;background:#fff;border-radius:50%}
+.donut-legend{font-size:12px;color:#374151;display:grid;gap:13px}.legend-line{display:grid;grid-template-columns:12px 1fr;gap:8px;align-items:flex-start}.legend-dot{width:9px;height:9px;border-radius:50%;background:#ef2222;margin-top:3px}.legend-dot.orange{background:#ff9214}.legend-dot.yellow{background:#ffb33e}.legend-dot.green{background:#22c55e}
+.donut-total{border-top:1px solid #e5e7eb;height:38px;display:flex;align-items:center;justify-content:center;gap:60px;font-size:14px;color:#111827}
+
+/* 底部状态栏 */
+.bottom-bar{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 0 0 0;position:relative;z-index:1}
+.status-items{display:flex;align-items:center;gap:58px;color:#4b5565;font-size:14px}
+.red-dot{width:9px;height:9px;border-radius:50%;background:#dc111b;display:inline-block;margin:0 8px}.green-check{color:#16a34a;font-weight:900}
+.bottom-actions{display:flex;gap:40px;align-items:center}
+.bottom-btn{height:40px;min-width:160px;border:1px solid #dfe4ec;border-radius:8px;background:#fff;color:#374151;display:flex;align-items:center;justify-content:center;gap:9px;font-weight:800}
+.next-btn{height:44px;min-width:218px;border-radius:8px;background:linear-gradient(180deg,#ef2b2b,#dc111b);color:#fff;border:none;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:900;font-size:15px;box-shadow:0 9px 18px rgba(220,38,38,.19)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;visibility:hidden">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V21h13V10.5"/><path d="M9.5 21v-6h5v6"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M9 5v14"/></symbol>
+  <symbol id="i-tf" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h7M10.5 9v7M15 9h4M15 12h3"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 5a3 3 0 0 0-5 2.2A3.5 3.5 0 0 0 5 14a3 3 0 0 0 4 4"/><path d="M15 5a3 3 0 0 1 5 2.2A3.5 3.5 0 0 1 19 14a3 3 0 0 1-4 4"/><path d="M9 5v13M15 5v13M9 10H6M15 10h3M9 14H6M15 14h3"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 17V9M12 17V5M17 17v-7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M3 4h18v3H3zM9 11h6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-13.7 5.7"/><path d="M4 12A8 8 0 0 1 17.7 6.3"/><path d="M18 2v5h-5"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-blue" viewBox="0 0 24 24"><path d="M4 19h16M6 17V8h5v9M13 17V5h5v12"/><path d="M8.5 10h.01M15.5 8h.01"/></symbol>
+  <symbol id="i-purple" viewBox="0 0 24 24"><path d="M5 17c1-5 3-8 7-8s6 3 7 8"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/><path d="M12 9V5"/></symbol>
+  <symbol id="i-green-nodes" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="12" cy="19" r="2"/><path d="M7 11l3-4M14 7l3 4M17 13l-3 4M10 17l-3-4"/></symbol>
+  <symbol id="i-red-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></symbol>
+  <symbol id="i-orange" viewBox="0 0 24 24"><path d="M6 5h12v14H6z"/><path d="M9 9l3-2 3 2v6l-3 2-3-2z"/></symbol>
+  <symbol id="i-memory" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+</svg>
+
+<div class="page-scale">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo"></div>
+        <div class="brand-copy">
+          <h1>中文新闻文本分类系统</h1>
+          <p>基于 TF-IDF、机器学习与深度学习的智能分析平台</p>
+        </div>
+      </div>
+
+      <nav class="menu">
+        <div class="menu-item"><svg class="icon"><use href="#i-home"/></svg><span>首页总览</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-db"/></svg><span>数据集管理</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-table"/></svg><span>数据预览与清洗</span></div>
+        <div class="menu-item active"><svg class="icon"><use href="#i-tf"/></svg><span>TF-IDF 特征提取</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-brain"/></svg><span>模型训练</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-sliders"/></svg><span>深度学习参数优化</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-chart"/></svg><span>模型评价与可视化</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-alert"/></svg><span>错误样本与关键词解释</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-archive"/></svg><span>实验记录与模型管理</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-send"/></svg><span>新闻文本预测</span></div>
+        <div class="menu-item"><svg class="icon"><use href="#i-file"/></svg><span>报告导出</span></div>
+      </nav>
+
+      <div class="orbital">
+        <div class="ring"></div>
+        <div class="diamond"></div>
+        <div class="base"></div>
+        <div class="dot d1"></div>
+        <div class="dot d2"></div>
+        <div class="dot d3"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="search">
+          <svg class="icon"><use href="#i-search"/></svg>
+          <span>输入内容 / 搜索功能...</span>
+        </div>
+        <div class="top-actions">
+          <div class="pill green"><span class="pill-dot"></span>系统在线</div>
+          <div class="pill red"><span class="pill-dot"></span>模型已就绪</div>
+          <div class="bell"><svg class="icon"><use href="#i-bell"/></svg></div>
+          <div class="admin-pill"><div class="avatar"><svg class="icon"><use href="#i-user"/></svg></div>管理员 <svg class="icon small-icon"><use href="#i-chevron-down"/></svg></div>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="page-head">
+          <div class="page-title">
+            <h2>TF-IDF 特征提取 <span class="info-dot">i</span></h2>
+            <p>配置 TF-IDF 向量化参数，提取文本特征，将文本转换为机器学习可用的特征向量。</p>
+          </div>
+          <div class="steps">
+            <div class="step active"><span class="num">1</span>参数配置</div><div class="step-line"></div>
+            <div class="step"><span class="num">2</span>特征提取中</div><div class="step-line"></div>
+            <div class="step"><span class="num">3</span>结果预览</div>
+          </div>
+        </div>
+
+        <div class="body-grid">
+          <aside class="left-col">
+            <section class="panel param-panel">
+              <div class="panel-title">参数配置</div>
+              <div class="form">
+                <div class="form-row"><span class="form-label">analyzer <span class="info-small">i</span></span><div class="select">word <svg class="icon small-icon"><use href="#i-chevron-down"/></svg></div></div>
+                <div class="form-row"><span class="form-label">ngram_range <span class="info-small">i</span></span><div class="select">(1, 2) <svg class="icon small-icon"><use href="#i-chevron-down"/></svg></div></div>
+                <div class="form-row"><span class="form-label">min_df <span class="info-small">i</span></span><div class="input">2</div></div>
+                <div class="form-row"><span class="form-label">max_df <span class="info-small">i</span></span><div class="input">0.95</div></div>
+                <div class="form-row"><span class="form-label">max_features <span class="info-small">i</span></span><div class="input">100000</div></div>
+                <div class="form-row"><span class="form-label">sublinear_tf <span class="info-small">i</span></span><div class="switch"></div></div>
+                <div class="form-row"><span class="form-label">use_idf <span class="info-small">i</span></span><div class="switch"></div></div>
+                <div class="form-row"><span class="form-label">smooth_idf <span class="info-small">i</span></span><div class="switch"></div></div>
+                <div class="form-row"><span class="form-label">norm <span class="info-small">i</span></span><div class="select">l2 <svg class="icon small-icon"><use href="#i-chevron-down"/></svg></div></div>
+              </div>
+              <div class="param-actions">
+                <button class="primary-btn"><svg class="icon small-icon"><use href="#i-play"/></svg>开始提取特征</button>
+                <button class="ghost-btn"><svg class="icon small-icon"><use href="#i-refresh"/></svg>重置参数</button>
+              </div>
+            </section>
+
+            <section class="panel dataset-panel">
+              <div class="panel-title" style="color:#111827">当前数据集</div>
+              <div class="dataset-table">
+                <div class="dataset-row"><span>数据集名称</span><b>THUCNews_轻量版</b></div>
+                <div class="dataset-row"><span>训练集</span><b>178,884 条</b></div>
+                <div class="dataset-row"><span>测试集</span><b>9,990 条</b></div>
+                <div class="dataset-row"><span>类别数量</span><b>10 类</b></div>
+              </div>
+            </section>
+          </aside>
+
+          <section class="right-col">
+            <section class="panel feature-panel">
+              <div class="panel-title">特征提取概览</div>
+              <div class="feature-cards">
+                <div class="feature-card"><div class="ficon blue"><svg class="icon"><use href="#i-blue"/></svg></div><div><div class="label">训练集特征维度</div><div class="value">100,000</div><div class="sub">（特征数量）</div></div></div>
+                <div class="feature-card"><div class="ficon purple"><svg class="icon"><use href="#i-purple"/></svg></div><div><div class="label">测试集特征维度</div><div class="value">100,000</div><div class="sub">（特征数量）</div></div></div>
+                <div class="feature-card"><div class="ficon green"><svg class="icon"><use href="#i-green-nodes"/></svg></div><div><div class="label">训练集矩阵大小</div><div class="value">178,884 × 100,000</div><div class="sub">（样本数 × 特征数）</div></div></div>
+                <div class="feature-card"><div class="ficon red"><svg class="icon"><use href="#i-red-grid"/></svg></div><div><div class="label">测试集矩阵大小</div><div class="value">9,990 × 100,000</div><div class="sub">（样本数 × 特征数）</div></div></div>
+                <div class="feature-card"><div class="ficon orange"><svg class="icon"><use href="#i-orange"/></svg></div><div><div class="label">稀疏度</div><div class="value">99.72%</div><div class="sub">（非零元素占比）</div></div></div>
+                <div class="feature-card"><div class="ficon red"><svg class="icon"><use href="#i-memory"/></svg></div><div><div class="label">内存占用</div><div class="value">1.23 GB</div><div class="sub">（预估占用）</div></div></div>
+              </div>
+            </section>
+
+            <div class="charts-grid">
+              <section class="panel chart-panel">
+                <div class="chart-title"><svg class="icon small-icon"><use href="#i-info"/></svg>文档频率分布（DF）</div>
+                <div class="chart-area">
+                  <div class="vlabel">文档数量（对数刻度）</div>
+                  <div class="ylabels"><span class="y1">1M</span><span class="y2">100k</span><span class="y3">10k</span><span class="y4">1k</span><span class="y5">100</span><span class="y6">1</span></div>
+                  <svg class="line-svg" viewBox="0 0 560 200" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="lineArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ef4444" stop-opacity=".35"/><stop offset="1" stop-color="#ef4444" stop-opacity=".03"/></linearGradient>
+                    </defs>
+                    <path d="M0 145 C50 138,90 126,130 113 C190 92,250 70,315 60 C370 52,420 61,460 82 C505 105,535 146,560 198 L0 198 Z" fill="url(#lineArea)"/>
+                    <path d="M0 145 C50 138,90 126,130 113 C190 92,250 70,315 60 C370 52,420 61,460 82 C505 105,535 146,560 198" fill="none" stroke="#ef2222" stroke-width="2.3"/>
+                    <g fill="#ef2222">
+                      <circle cx="0" cy="145" r="2"/><circle cx="80" cy="128" r="2"/><circle cx="160" cy="101" r="2"/><circle cx="240" cy="73" r="2"/><circle cx="320" cy="60" r="2"/><circle cx="400" cy="60" r="2"/><circle cx="480" cy="96" r="2"/><circle cx="540" cy="160" r="2"/>
+                    </g>
+                  </svg>
+                  <div class="xnums"><span>1</span><span>10</span><span>100</span><span>1k</span><span>10k</span><span>100k</span></div>
+                  <div class="axis-label">文档频率（DF）</div>
+                </div>
+              </section>
+
+              <section class="panel chart-panel">
+                <div class="chart-title">IDF 值分布</div>
+                <div class="chart-area">
+                  <div class="vlabel">特征数量</div>
+                  <div class="ylabels"><span class="y1">10k</span><span class="y2">8k</span><span class="y3">6k</span><span class="y4">4k</span><span class="y5">2k</span><span class="y6">0</span></div>
+                  <div class="bar-chart">
+                    <div class="bar" style="height:12%"></div><div class="bar" style="height:25%"></div><div class="bar" style="height:44%"></div><div class="bar" style="height:62%"></div><div class="bar" style="height:78%"></div><div class="bar" style="height:100%"></div><div class="bar" style="height:86%"></div><div class="bar" style="height:80%"></div><div class="bar" style="height:60%"></div><div class="bar" style="height:54%"></div><div class="bar" style="height:47%"></div><div class="bar" style="height:53%"></div><div class="bar" style="height:45%"></div><div class="bar" style="height:39%"></div><div class="bar" style="height:35%"></div><div class="bar" style="height:32%"></div><div class="bar" style="height:30%"></div><div class="bar" style="height:27%"></div><div class="bar" style="height:23%"></div><div class="bar" style="height:19%"></div><div class="bar" style="height:16%"></div><div class="bar" style="height:12%"></div><div class="bar" style="height:9%"></div><div class="bar" style="height:6%"></div><div class="bar" style="height:4%"></div><div class="bar" style="height:2%"></div>
+                  </div>
+                  <div class="xnums"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+                  <div class="axis-label">IDF 值</div>
+                </div>
+              </section>
+            </div>
+
+            <div class="lower-grid">
+              <section class="panel keyword-panel">
+                <div class="panel-title">高权重特征示例（按 IDF 值排序）</div>
+                <table class="keyword-table">
+                  <thead><tr><th>排名</th><th>特征</th><th>IDF 值</th><th>文档频率(DF)</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td>深度学习</td><td>7.8562</td><td>3</td></tr><tr><td>2</td><td>人工智能</td><td>7.6241</td><td>5</td></tr><tr><td>3</td><td>芯片技术</td><td>7.2134</td><td>8</td></tr><tr><td>4</td><td>新能源车</td><td>7.1025</td><td>9</td></tr><tr><td>5</td><td>股市行情</td><td>6.9876</td><td>11</td></tr><tr><td>6</td><td>世界杯</td><td>6.8567</td><td>12</td></tr><tr><td>7</td><td>教育改革</td><td>6.7432</td><td>15</td></tr><tr><td>8</td><td>数字经济</td><td>6.5987</td><td>18</td></tr><tr><td>9</td><td>房地产市场</td><td>6.4321</td><td>22</td></tr><tr><td>10</td><td>科技创新</td><td>6.3210</td><td>25</td></tr>
+                  </tbody>
+                </table>
+                <div class="more">查看更多</div>
+              </section>
+
+              <section class="panel donut-panel">
+                <div class="panel-title">特征类型统计</div>
+                <div class="donut-wrap">
+                  <div class="big-donut"></div>
+                  <div class="donut-legend">
+                    <div class="legend-line"><span class="legend-dot"></span><span>单字特征（1-gram）<br>45,678 (45.68%)</span></div>
+                    <div class="legend-line"><span class="legend-dot orange"></span><span>双字特征（2-gram）<br>38,912 (38.91%)</span></div>
+                    <div class="legend-line"><span class="legend-dot yellow"></span><span>三字特征（3-gram）<br>12,345 (12.35%)</span></div>
+                    <div class="legend-line"><span class="legend-dot green"></span><span>四字及以上 (n-gram)<br>3,065 (3.06%)</span></div>
+                  </div>
+                </div>
+                <div class="donut-total"><span>总计</span><span>100,000 (100%)</span></div>
+              </section>
+
+              <section class="panel stats-panel">
+                <div class="panel-title">样本特征稀疏度分析</div>
+                <table class="stats-table">
+                  <thead><tr><th>统计项</th><th>训练集</th><th>测试集</th></tr></thead>
+                  <tbody>
+                    <tr><td>平均非零特征数</td><td>234.56</td><td>238.91</td></tr>
+                    <tr><td>最大非零特征数</td><td>1,234</td><td>1,198</td></tr>
+                    <tr><td>最小非零特征数</td><td>15</td><td>14</td></tr>
+                    <tr><td>平均稀疏度</td><td>99.72%</td><td>99.71%</td></tr>
+                    <tr><td>最大稀疏度</td><td>99.99%</td><td>99.99%</td></tr>
+                    <tr><td>最小稀疏度</td><td>99.50%</td><td>99.52%</td></tr>
+                  </tbody>
+                </table>
+              </section>
+            </div>
+          </section>
+        </div>
+
+        <div class="bottom-bar">
+          <div class="status-items">
+            <span>当前数据集：<span class="red-dot"></span>THUCNews_轻量版</span>
+            <span>特征提取状态： <span class="green-check">✓ 已完成</span></span>
+            <span>最后更新：&nbsp;&nbsp; 2024-06-01 14:45:30</span>
+          </div>
+          <div class="bottom-actions">
+            <button class="bottom-btn"><svg class="icon small-icon"><use href="#i-save"/></svg>保存配置</button>
+            <button class="bottom-btn"><svg class="icon small-icon"><use href="#i-download"/></svg>导出特征矩阵</button>
+            <button class="next-btn"><svg class="icon small-icon"><use href="#i-next"/></svg>下一步：模型训练</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+function scalePage(){
+  const designWidth=2048,designHeight=1152;
+  const scale=Math.min(window.innerWidth/designWidth,window.innerHeight/designHeight);
+  const app=document.querySelector(".app");
+  const offsetX=(window.innerWidth-designWidth*scale)/2;
+  const offsetY=(window.innerHeight-designHeight*scale)/2;
+  app.style.left=offsetX+"px";
+  app.style.top=offsetY+"px";
+  app.style.transform=`scale(${scale})`;
+}
+window.addEventListener("resize",scalePage);
+window.addEventListener("load",scalePage);
+scalePage();
+</script>
+</body>
+</html>

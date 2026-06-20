@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>中文新闻文本分类系统 - 深度学习参数优化</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#fff;font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;color:#111827}
+.stage{width:100vw;height:100vh;overflow:hidden;position:relative;background:#fff}
+.app{width:2048px;height:1152px;position:absolute;left:0;top:0;transform-origin:top left;display:flex;background:radial-gradient(circle at 88% 8%,rgba(220,38,38,.07),transparent 26%),radial-gradient(circle at 10% 88%,rgba(220,38,38,.055),transparent 24%),#fff}
+.icon{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}.sicon{width:16px;height:16px}.fill{fill:currentColor;stroke:currentColor}
+
+/* sidebar */
+.sidebar{width:288px;height:1152px;flex-shrink:0;border-right:none;background:rgba(255,255,255,.94);position:relative;overflow:visible;z-index:10}
+.sidebar:after{content:"";position:absolute;right:0;top:88px;bottom:0;width:1px;background:#e5e7eb;pointer-events:none;z-index:12}
+.brand{height:88px;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid #edf0f4;overflow:visible}
+.brand-logo{width:58px;height:58px;margin-right:16px;flex-shrink:0;position:relative;background:linear-gradient(145deg,#c8121b,#ff6b70);box-shadow:0 12px 24px rgba(220,38,38,.25);clip-path:polygon(50% 0,92% 25%,92% 75%,50% 100%,8% 75%,8% 25%)}
+.brand-logo:before{content:"";position:absolute;inset:12px;border:3px solid #fff;border-radius:4px;transform:rotate(30deg)}
+.brand-logo:after{content:"";position:absolute;left:18px;top:18px;width:22px;height:22px;border:3px solid #fff;border-left:none;border-top:none;transform:rotate(30deg)}
+.brand-copy{width:560px;flex-shrink:0;overflow:visible}.brand h1{font-size:25px;line-height:1.08;font-weight:900;letter-spacing:-.6px;white-space:nowrap}.brand p{font-size:13px;color:#6b7280;margin-top:7px;white-space:nowrap}
+.menu{padding:23px 17px 0 15px}.menu-item{height:54px;display:flex;align-items:center;gap:17px;padding:0 21px;border-radius:8px;color:#4b5563;font-size:16.5px;font-weight:500;margin-bottom:7px;position:relative}.menu-item svg{width:23px;height:23px}
+.menu-item.active{background:linear-gradient(90deg,rgba(220,38,38,.14),rgba(220,38,38,.05));color:#dc1f1f;font-weight:900}.menu-item.active:before{content:"";position:absolute;left:-15px;width:4px;height:36px;background:#dc1f1f;border-radius:0 6px 6px 0}.menu-item.active svg{fill:#dc1f1f;stroke:#dc1f1f}
+.orbital{position:absolute;left:18px;bottom:43px;width:250px;height:198px;pointer-events:none}.orbital .ring{position:absolute;left:15px;bottom:39px;width:222px;height:76px;border:1px solid rgba(239,68,68,.24);border-radius:50%;transform:rotate(-7deg)}.orbital .base{position:absolute;bottom:9px;left:63px;width:125px;height:37px;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.95) 0,rgba(220,38,38,.8) 42%,rgba(220,38,38,.06) 78%);filter:blur(2px)}.orbital .diamond{position:absolute;left:92px;top:36px;width:70px;height:70px;background:linear-gradient(145deg,#ffb7bc,#ff8087 32%,#ef4444 70%,#dc2626);transform:rotate(45deg);border-radius:8px;box-shadow:0 18px 36px rgba(220,38,38,.28)}.orbital .diamond:after{content:"";position:absolute;inset:11px;background:rgba(255,255,255,.15);border-radius:5px}.dot{position:absolute;width:7px;height:7px;background:#ef4444;border-radius:50%;box-shadow:0 0 12px rgba(220,38,38,.55)}.d1{left:20px;top:82px}.d2{right:28px;top:98px}.d3{right:55px;top:40px;width:6px;height:6px}
+
+/* top */
+.main{flex:1;height:1152px;overflow:hidden;position:relative}
+.topbar{height:88px;border-bottom:1px solid #edf0f4;background:rgba(255,255,255,.84);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 410px}
+.search{width:642px;height:48px;border:1.5px solid #f3a7aa;border-radius:8px;display:flex;align-items:center;padding:0 17px;color:#9ca3af;font-size:15px;background:rgba(255,255,255,.86);box-shadow:0 8px 26px rgba(220,38,38,.05)}.search svg{width:22px;height:22px;margin-right:14px;color:#6b7280}.kbd{margin-left:auto;width:48px;height:28px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;gap:5px;color:#6b7280;font-weight:800}
+.top-actions{display:flex;align-items:center;gap:20px}.pill{height:36px;padding:0 17px;border-radius:999px;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:900}.pill:before{content:"";width:10px;height:10px;border-radius:50%;background:currentColor}.green{color:#16a34a;background:#e9f8ee}.redpill{color:#dc2626;background:#fde8e8}.bell{position:relative;color:#374151}.bell:after{content:"";position:absolute;right:-2px;top:-2px;width:8px;height:8px;background:#e60012;border-radius:50%;box-shadow:0 0 0 3px #fff}.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#e90012,#b8000d);display:grid;place-items:center;color:white}.avatar svg{width:30px;height:30px;fill:white;stroke:white}
+
+/* content */
+.content{height:1064px;padding:12px 46px 8px 32px;overflow:hidden}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:18px;margin-bottom:12px}.stat{height:100px;border:1.5px solid #f3a0a4;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 15px 34px rgba(220,38,38,.05);position:relative;padding:9px 23px 10px;overflow:hidden}.stat .lab{font-size:14px;color:#4b5565;margin-bottom:5px;line-height:1.05}.stat .val{font-size:24px;font-weight:900;color:#d40f19;margin-bottom:3px;line-height:1.05}.stat .sub{font-size:13px;color:#667084;line-height:1.05}.up{color:#16a34a;font-weight:900}.stat .circle{position:absolute;right:19px;top:9px;width:40px;height:40px;border-radius:50%;background:#ffe9e9;color:#e31b23;display:grid;place-items:center}.circle svg{width:24px;height:24px}.spark{position:absolute;right:18px;bottom:11px;width:88px;height:27px}.spark path{fill:none;stroke:#ef2b32;stroke-width:2}.mini-progress{position:absolute;right:27px;bottom:21px;width:96px;height:5px;background:#e5e7eb;border-radius:999px;overflow:hidden}.mini-progress i{display:block;width:35%;height:100%;background:#e11d26;border-radius:999px}
+
+.grid-main{display:grid;grid-template-columns:416px 1fr;gap:16px;height:532px}.panel{border:1.5px solid #f3a6aa;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 16px 36px rgba(220,38,38,.046);overflow:hidden;position:relative}.ptitle{height:48px;display:flex;align-items:center;gap:10px;padding:0 18px;font-size:18px;font-weight:900}.ptitle svg{color:#e31b23}
+
+/* config */
+.config{height:532px;padding-bottom:10px}.config-body{padding:0 16px}.subhead{font-size:13px;color:#374151;margin-bottom:8px}.goals{height:50px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center}.goal{height:32px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#6b7280;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:800}.goal.active{border-color:#ff9da3;background:#fff4f4;color:#e11d26}.radio{width:13px;height:13px;border-radius:50%;border:1px solid #d1d5db}.goal.active .radio{border:4px solid #e11d26}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:7px}.field label{display:block;font-size:13px;color:#374151;margin-bottom:5px;white-space:nowrap}.ctrl{height:35px;border:1px solid #e1e5ec;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 11px;color:#374151;font-size:13px;font-weight:700}.switch{width:39px;height:22px;background:#16a34a;border-radius:999px;position:relative}.switch:after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;background:white;border-radius:50%}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.btn{height:40px;border-radius:7px;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px}.btn.primary{background:linear-gradient(180deg,#ef2b2b,#dc111b);color:#fff;border:none}.btn.ghost{background:#fff;border:1px solid #f3a6aa;color:#e11d26}
+
+/* monitor */
+.monitor{height:532px;padding:0 18px 10px}.stepper{height:84px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:0 40px;margin-bottom:10px;position:relative}.dash{position:absolute;left:105px;right:105px;top:21px;border-top:2px dashed #d1d5db}.done-line{position:absolute;left:105px;width:470px;top:21px;border-top:3px solid #e11d26}.step{position:relative;z-index:2;text-align:center;color:#374151;font-size:14px;font-weight:800;padding-top:48px;line-height:1.05}.step:before{content:"";position:absolute;left:50%;top:9px;transform:translateX(-50%);width:24px;height:24px;border-radius:50%;background:#fff;border:1.8px solid #ef4444}.step.done:after{content:"✓";position:absolute;left:50%;top:11px;transform:translateX(-50%);color:#ef4444;font-weight:900}.step.current:before{background:#e11d26;border-color:#e11d26}.step.current:after{content:"3";position:absolute;left:50%;top:11px;transform:translateX(-50%);color:#fff;font-weight:900}.step.pending:before{border-color:#cbd5e1}.step.pending:after{content:attr(data-num);position:absolute;left:50%;top:11px;transform:translateX(-50%);color:#94a3b8;font-weight:900}
+.status-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}.scard{height:82px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;display:grid;grid-template-columns:46px 1fr;align-items:center;padding:0 16px}.round{width:34px;height:34px;border-radius:50%;background:#fff1f1;color:#ef4444;display:grid;place-items:center}.round.g{background:#eaf8ef;color:#16a34a}.slabel{font-size:13px;color:#6b7280;margin-bottom:4px}.sval{font-size:16px;font-weight:900}.sval.r{color:#e11d26}.sval.g{color:#16a34a}.ssub{font-size:12px;color:#6b7280;margin-top:4px}
+.charts{display:grid;grid-template-columns:1.1fr .95fr;gap:14px}.chart{height:252px;padding:0 18px 10px}.chart-head{height:42px;display:flex;align-items:center;justify-content:space-between}.chart-head h3{font-size:16px;font-weight:900;display:flex;align-items:center;gap:8px}.legend{display:flex;gap:18px;font-size:12px;color:#4b5563}.legend i{display:inline-block;width:18px;height:4px;border-radius:999px;background:#e11d26;margin-right:6px;vertical-align:middle}.legend i.gray{background:#9ca3af}.line-chart{height:182px;position:relative;overflow:visible;background:linear-gradient(to bottom,transparent 0,transparent 35px,#edf0f4 36px,transparent 37px,transparent 71px,#edf0f4 72px,transparent 73px,transparent 107px,#edf0f4 108px,transparent 109px,transparent 143px,#edf0f4 144px,transparent 145px)}.line-svg{position:absolute;left:40px;right:12px;top:8px;width:calc(100% - 52px);height:165px;overflow:visible}.yaxis{position:absolute;left:0;top:8px;height:165px;width:34px;text-align:right;color:#4b5565;font-size:12px}.yaxis span{position:absolute;right:5px}.yy1{top:0}.yy2{top:40px}.yy3{top:80px}.yy4{top:120px}.yy5{top:160px}.xaxis{position:absolute;left:40px;right:12px;bottom:1px;display:flex;justify-content:space-between;color:#4b5565;font-size:12px}.tag-val{position:absolute;right:15px;top:43px;background:#e11d26;color:#fff;border-radius:4px;padding:3px 6px;font-size:12px;font-weight:900}
+.bar-area{height:182px;position:relative;padding:4px 34px 30px 128px;overflow:hidden}.hrow{height:13px;display:grid;grid-template-columns:128px minmax(0,1fr) 48px;align-items:center;margin-bottom:3px;font-size:12px;color:#374151;line-height:1.28}.hlabel{margin-left:-128px;white-space:nowrap}.hbar{height:5px;background:#e11d26;border-radius:999px;max-width:100%}.hvalue{text-align:right;padding-left:10px;white-space:nowrap}.axis-bottom{position:absolute;left:128px;right:82px;bottom:23px;height:1px;background:#d1d5db}.axis-num{position:absolute;left:128px;right:82px;bottom:5px;display:flex;justify-content:space-between;color:#6b7280;font-size:12px}
+
+/* bottom grid */
+.bottom{display:grid;grid-template-columns:2.05fr .9fr 1fr 1.48fr;gap:14px;height:360px;margin-top:12px}.rank,.recommend,.proxy,.rightstack{height:360px}.rank{padding:0 16px 12px}.flexhead{height:42px;display:flex;align-items:center;justify-content:space-between}.flexhead h3{font-size:17px;font-weight:900;display:flex;align-items:center;gap:8px}.mini{height:30px;width:78px;border:1px solid #f3a6aa;border-radius:7px;background:#fff;color:#e11d26;font-weight:900;display:flex;align-items:center;justify-content:center;gap:6px}
+table{border-collapse:collapse;width:100%}.rank th{height:32px;background:#f8fafc;color:#4b5563;font-size:13px;border-bottom:1px solid #e5e7eb}.rank td{height:35px;text-align:center;border-bottom:1px solid #edf0f4;font-size:13px;line-height:1.35}.medal{font-size:20px}.status{min-height:24px;padding:2px 12px;border-radius:999px;background:#dcfce7;color:#16a34a;font-weight:900;display:inline-flex;align-items:center;justify-content:center;line-height:1.28}.status.gray{background:#f1f5f9;color:#64748b}.foot{height:34px;display:flex;align-items:center;justify-content:space-between;padding-top:6px;color:#4b5565;font-size:13px}.page{width:28px;height:28px;background:#e11d26;color:#fff;border-radius:5px;display:inline-grid;place-items:center;font-weight:900}
+.recommend{padding:0 14px 12px}.suggest{height:26px;padding:0 10px;border:1px solid #f3a6aa;border-radius:6px;color:#ef4444;background:#fff;font-size:12px;font-weight:900}.recbox{height:210px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:9px 18px 7px;font-size:12px;color:#374151;overflow:hidden;line-height:1.18}.section{font-weight:900;color:#111827;margin-top:4px;margin-bottom:3px;line-height:1.15}.plist{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;margin-top:2px;line-height:1.15}.best{height:44px;border:1px solid #ffd1d1;background:#fff5f5;border-radius:8px;color:#e11d26;font-weight:900;display:grid;place-items:center;margin-top:8px;font-size:15px;position:relative;z-index:2}
+.proxy{padding:0 14px 12px}.pcard{height:70px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:9px 16px;margin-bottom:8px}.pcard .label{font-size:13px;color:#4b5563;margin-bottom:7px}.progress{height:5px;background:#e5e7eb;border-radius:999px;overflow:hidden}.progress i{display:block;height:100%;background:#e11d26;border-radius:999px}.spark2{display:grid;grid-template-columns:55px 1fr;gap:8px;align-items:center;margin-top:5px;color:#374151;font-size:12px}.spark2 b{font-size:15px}.pstatus{height:40px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px;margin-top:4px}.train{height:30px;padding:0 16px;border-radius:999px;background:#eaf8ef;color:#16a34a;display:flex;align-items:center;gap:8px;font-weight:900}.train:before{content:"";width:8px;height:8px;border-radius:50%;background:#16a34a}
+.rightstack{display:flex;flex-direction:column;gap:10px}.log{height:244px;padding:0 14px 8px}.loghead{height:38px;display:flex;align-items:center;justify-content:space-between}.loghead h3{font-size:17px;font-weight:900;display:flex;align-items:center;gap:8px}.loghead span{color:#e11d26;font-weight:900;font-size:13px}.loglist{height:196px;position:relative;padding-left:22px}.loglist:before{content:"";position:absolute;left:8px;top:4px;bottom:6px;width:1px;background:#d1d5db}.logrow{height:26px;display:grid;grid-template-columns:70px 1fr;align-items:center;font-size:12px;color:#4b5563;position:relative}.logrow:before{content:"";position:absolute;left:-18px;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px #fff}.logrow.red:before{background:#ef4444}.logrow.orange:before{background:#f97316}.logrow.blue:before{background:#3b82f6}.logrow.orange{color:#f97316;font-weight:900}.quick{height:106px;padding:0 14px 10px}.qtitle{height:34px;display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900}.qgrid{height:60px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.qcard{border:1px solid #f3a6aa;border-radius:8px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#374151;font-size:12px;font-weight:800}.qcard svg{width:26px;height:26px;color:#e11d26;margin-bottom:4px}
+
+/* 当前最佳 Macro-F1 卡片：稍微加宽三行文字的行间距 */
+.stats .stat:nth-child(5) .lab{
+  line-height:1.18;
+  margin-bottom:7px;
+}
+.stats .stat:nth-child(5) .val{
+  line-height:1.18;
+  margin-bottom:5px;
+}
+.stats .stat:nth-child(5) .sub{
+  line-height:1.20;
+}
+
+
+/* 候选参数排行榜：加宽行距并让表格内容填满模块 */
+.rank{
+  padding:0 16px 10px;
+}
+.rank .flexhead{
+  height:42px;
+}
+.rank th{
+  height:38px;
+  line-height:1.35;
+}
+.rank td{
+  height:46px;
+  line-height:1.55;
+  vertical-align:middle;
+}
+.rank td:nth-child(3){
+  line-height:1.62;
+}
+.rank .status{
+  line-height:1.35;
+  min-height:30px;
+}
+.rank .foot{
+  height:42px;
+  padding-top:8px;
+}
+
+/* 最优参数推荐：扩大文字行距并占满卡片空间 */
+.recommend{
+  padding:0 14px 10px;
+}
+.recommend .flexhead{
+  height:42px;
+}
+.recommend .recbox{
+  height:238px;
+  padding:13px 18px 11px;
+  line-height:1.42;
+}
+.recommend .section{
+  margin-top:6px;
+  margin-bottom:6px;
+  line-height:1.35;
+}
+.recommend .plist{
+  gap:7px 16px;
+  line-height:1.42;
+}
+.recommend .best{
+  height:52px;
+  margin-top:10px;
+  font-size:16px;
+}
+
+
+/* 参数贡献度：条形横向拉长，并与横坐标严格对齐；纵向行距再压缩 */
+.bar-area{
+  height:182px;
+  position:relative;
+  padding:3px 18px 26px 128px;
+  overflow:hidden;
+}
+.hrow{
+  height:12px;
+  display:grid;
+  grid-template-columns:128px minmax(0,1fr) 48px;
+  align-items:center;
+  margin-bottom:2px;
+  font-size:12px;
+  color:#374151;
+  line-height:1.12;
+}
+.hlabel{
+  margin-left:-128px;
+  white-space:nowrap;
+}
+.hbar{
+  height:5px;
+  background:#e11d26;
+  border-radius:999px;
+  max-width:100%;
+}
+.hvalue{
+  text-align:right;
+  padding-left:10px;
+  white-space:nowrap;
+}
+.axis-bottom{
+  position:absolute;
+  left:128px;
+  right:66px;
+  bottom:22px;
+  height:1px;
+  background:#d1d5db;
+}
+.axis-num{
+  position:absolute;
+  left:128px;
+  right:66px;
+  bottom:4px;
+  display:flex;
+  justify-content:space-between;
+  color:#6b7280;
+  font-size:12px;
+}
+
+/* 最优参数推荐：去掉底部文字后，让参数内容填满到底线并与其他模块底边持平 */
+.bottom{
+  align-items:stretch;
+}
+.recommend{
+  height:360px;
+  display:flex;
+  flex-direction:column;
+  padding:0 14px 10px;
+}
+.recommend .flexhead{
+  height:42px;
+  flex-shrink:0;
+}
+.recommend .recbox{
+  height:308px;
+  flex:1;
+  padding:18px 18px 16px;
+  line-height:1.60;
+  margin:0;
+}
+.recommend .section{
+  margin-top:10px;
+  margin-bottom:8px;
+  line-height:1.45;
+}
+.recommend .section:first-child{
+  margin-top:0;
+}
+.recommend .plist{
+  gap:10px 16px;
+  line-height:1.58;
+}
+.recommend .best{
+  display:none !important;
+}
+
+
+/* 优化进程监控：让对勾/数字图标准确压在横线上 */
+.stepper .dash{
+  top:21px;
+}
+.stepper .done-line{
+  top:21px;
+}
+.stepper .step:before{
+  top:9px;
+}
+.stepper .step.done:after,
+.stepper .step.current:after,
+.stepper .step.pending:after{
+  top:9px;
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:24px;
+}
+
+
+/* 参数贡献度：让横向条形长度与横坐标轴完全一致 */
+.bar-area{
+  height:182px;
+  position:relative;
+  padding:3px 18px 26px 128px;
+  overflow:hidden;
+}
+.hrow{
+  height:12px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 48px;
+  align-items:center;
+  margin-bottom:2px;
+  font-size:12px;
+  color:#374151;
+  line-height:1.12;
+  position:relative;
+}
+.hlabel{
+  position:absolute;
+  left:-128px;
+  width:128px;
+  margin-left:0;
+  white-space:nowrap;
+}
+.hbar{
+  height:5px;
+  background:#e11d26;
+  border-radius:999px;
+  max-width:100%;
+}
+.hvalue{
+  text-align:right;
+  padding-left:10px;
+  white-space:nowrap;
+}
+.axis-bottom{
+  position:absolute;
+  left:128px;
+  right:66px;
+  bottom:22px;
+  height:1px;
+  background:#d1d5db;
+}
+.axis-num{
+  position:absolute;
+  left:128px;
+  right:66px;
+  bottom:4px;
+  display:flex;
+  justify-content:space-between;
+  color:#6b7280;
+  font-size:12px;
+}
+
+
+/* 优化进程监控：进度横线整体下移，并保持圆圈/对勾/数字压在线上 */
+.stepper .dash{
+  top:21px !important;
+}
+.stepper .done-line{
+  top:21px !important;
+}
+.stepper .step:before{
+  top:13px !important;
+}
+.stepper .step.done:after,
+.stepper .step.current:after,
+.stepper .step.pending:after{
+  top:13px !important;
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:24px;
+}
+
+
+/* ===== 最终覆盖区：只修当前需要的细节 ===== */
+
+/* 顶部 6 个统计卡片：统一文字纵向高度 */
+.stats .stat{
+  padding-top:10px;
+}
+
+.stats .stat .lab{
+  height:18px;
+  line-height:18px;
+  margin-bottom:5px;
+}
+
+.stats .stat .val{
+  height:30px;
+  line-height:30px;
+  margin-bottom:3px;
+}
+
+/* 第 6 个卡片中 LinearSVC + TF-IDF 这一行，与前面数字行对齐 */
+.stats .stat:nth-child(6) > div:nth-child(2){
+  height:30px;
+  line-height:30px;
+  margin:0 0 3px 0 !important;
+}
+
+.stats .stat .sub{
+  height:18px;
+  line-height:18px;
+}
+
+/* 覆盖之前第 5 个卡片单独加行距的问题 */
+.stats .stat:nth-child(5) .lab{
+  height:18px;
+  line-height:18px;
+  margin-bottom:5px;
+}
+
+.stats .stat:nth-child(5) .val{
+  height:30px;
+  line-height:30px;
+  margin-bottom:3px;
+}
+
+.stats .stat:nth-child(5) .sub{
+  height:18px;
+  line-height:18px;
+}
+
+/* 优化进程监控：进度横线下移到 32px，圆圈/对勾/数字同步压在线上 */
+.stepper .dash{
+  top:40px !important;
+}
+
+.stepper .done-line{
+  top:40px !important;
+}
+
+/* 圆圈高度是 24px，所以圆圈 top = 横线 top - 12px */
+.stepper .step:before{
+  top:20px !important;
+}
+
+.stepper .step.done:after,
+.stepper .step.current:after,
+.stepper .step.pending:after{
+  top:20px !important;
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:24px;
+}
+
+/* 参数贡献度：横向条形长度与横坐标轴保持一致 */
+.bar-area{
+  height:182px;
+  position:relative;
+  padding:3px 18px 26px 128px;
+  overflow:hidden;
+}
+
+.hrow{
+  height:12px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 48px;
+  align-items:center;
+  margin-bottom:2px;
+  font-size:12px;
+  color:#374151;
+  line-height:1.12;
+  position:relative;
+}
+
+.hlabel{
+  position:absolute;
+  left:-128px;
+  width:128px;
+  margin-left:0;
+  white-space:nowrap;
+}
+
+.hbar{
+  height:5px;
+  background:#e11d26;
+  border-radius:999px;
+  max-width:100%;
+}
+
+.hvalue{
+  text-align:right;
+  padding-left:10px;
+  white-space:nowrap;
+}
+
+.axis-bottom{
+  position:absolute;
+  left:128px;
+  right:66px;
+  bottom:22px;
+  height:1px;
+  background:#d1d5db;
+}
+
+.axis-num{
+  position:absolute;
+  left:128px;
+  right:66px;
+  bottom:4px;
+  display:flex;
+  justify-content:space-between;
+  color:#6b7280;
+  font-size:12px;
+}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;visibility:hidden">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V21h13V10.5"/><path d="M9.5 21v-6h5v6"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v12c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M9 5v14"/></symbol>
+<symbol id="i-tf" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h7M10.5 9v7M15 9h4M15 12h3"/></symbol>
+<symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 5a3 3 0 0 0-5 2.2A3.5 3.5 0 0 0 5 14a3 3 0 0 0 4 4"/><path d="M15 5a3 3 0 0 1 5 2.2A3.5 3.5 0 0 1 19 14a3 3 0 0 1-4 4"/><path d="M9 5v13M15 5v13"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="11" cy="18" r="2"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 17V9M12 17V5M17 17v-7"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></symbol>
+<symbol id="i-archive" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M3 4h18v3H3zM9 11h6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7 17h10"/></symbol>
+<symbol id="i-seed" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M12 9c-4-4-8-3-8 1 0 3 3 5 8 4"/><path d="M12 9c4-4 8-3 8 1 0 3-3 5-8 4"/><circle cx="12" cy="6" r="2"/></symbol>
+<symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12 4 7.5M12 12l8-4.5M12 12v9"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M20 4l-4 4"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0z"/><path d="M8 6H4c0 4 2 6 5 6M16 6h4c0 4-2 6-5 6"/><path d="M12 12v5M8 21h8M9 17h6"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-13.7 5.7"/><path d="M4 12A8 8 0 0 1 17.7 6.3"/><path d="M18 2v5h-5"/></symbol>
+<symbol id="i-network" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M8 7l3 9M16 7l-3 9M8 6h8"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.7 15.4 6.3M8.6 13.3l6.8 4.4"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+</svg>
+
+<div class="stage"><div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-logo"></div><div class="brand-copy"><h1>中文新闻文本分类系统</h1><p>基于 TF-IDF、机器学习与神经网络参数优化的智能分析平台</p></div></div>
+  <nav class="menu">
+    <div class="menu-item"><svg class="icon"><use href="#i-home"/></svg>首页总览</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-db"/></svg>数据集管理</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-table"/></svg>数据预览与清洗</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-tf"/></svg>TF-IDF特征提取</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-brain"/></svg>模型训练</div>
+    <div class="menu-item active"><svg class="icon"><use href="#i-sliders"/></svg>深度学习参数优化</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-chart"/></svg>模型评价与可视化</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-alert"/></svg>错误样本与关键词解释</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-archive"/></svg>实验记录与模型管理</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-send"/></svg>新闻文本预测</div>
+    <div class="menu-item"><svg class="icon"><use href="#i-file"/></svg>报告导出</div>
+  </nav>
+  <div class="orbital"><div class="ring"></div><div class="diamond"></div><div class="base"></div><div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div></div>
+</aside>
+<main class="main">
+<header class="topbar">
+  <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>输入指令 / 搜索模块...</span><div class="kbd">⌘ K</div></div>
+  <div class="top-actions"><div class="pill green">系统在线</div><div class="pill redpill">模型已加载</div><div class="bell"><svg class="icon"><use href="#i-bell"/></svg></div><div class="avatar"><svg class="icon"><use href="#i-user"/></svg></div><svg class="icon sicon"><use href="#i-chevron"/></svg></div>
+</header>
+<section class="content">
+  <div class="stats">
+    <div class="stat"><div class="lab">优化实验数</div><div class="val">36</div><div class="sub">较上次 <span class="up">+4.35% ↑</span></div><div class="circle"><svg class="icon"><use href="#i-flask"/></svg></div><svg class="spark" viewBox="0 0 100 40"><path d="M4 28 C18 22,30 31,43 30 C56 31,60 19,72 21 C82 18,85 12,96 10"/></svg></div>
+    <div class="stat"><div class="lab">当前随机种子</div><div class="val">617</div><div class="sub">较上次 无变化</div><div class="circle"><svg class="icon"><use href="#i-seed"/></svg></div><svg class="spark" viewBox="0 0 100 40"><path d="M4 31 C18 25,27 24,38 27 C50 32,57 24,68 22 C77 18,78 9,91 15 C94 17,96 18,99 15"/></svg></div>
+    <div class="stat"><div class="lab">候选参数组数</div><div class="val">120</div><div class="sub">较上次 <span class="up">+10.18% ↑</span></div><div class="circle"><svg class="icon"><use href="#i-cube"/></svg></div><svg class="spark" viewBox="0 0 100 40"><path d="M4 31 C18 23,26 20,38 22 C50 24,58 27,68 17 C78 13,80 6,92 13"/></svg></div>
+    <div class="stat"><div class="lab">已完成轮次</div><div class="val">7 / 20</div><div class="sub">进度 35%</div><div class="circle"><svg class="icon"><use href="#i-target"/></svg></div><div class="mini-progress"><i></i></div></div>
+    <div class="stat"><div class="lab">当前最佳 Macro-F1</div><div class="val">0.9124</div><div class="sub">较上次 <span class="up">+0.0247 ↑</span></div><div class="circle"><svg class="icon"><use href="#i-trophy"/></svg></div><svg class="spark" viewBox="0 0 100 40"><path d="M4 31 C18 28,28 23,39 26 C50 30,58 24,68 21 C78 18,82 7,95 16"/></svg></div>
+    <div class="stat"><div class="lab">最优模型</div><div style="font-size:16px;font-weight:900;margin:4px 0">LinearSVC + TF-IDF</div><div class="sub" style="color:#e11d26;font-weight:900">最优方案已更新</div><div class="circle"><svg class="icon"><use href="#i-star"/></svg></div></div>
+  </div>
+
+  <div class="grid-main">
+    <aside class="panel config">
+      <div class="ptitle"><svg class="icon"><use href="#i-sliders"/></svg>优化配置</div>
+      <div class="config-body">
+        <div class="subhead">优化目标</div>
+        <div class="goals"><div class="goal active"><span class="radio"></span>Macro-F1</div><div class="goal"><span class="radio"></span>Accuracy</div><div class="goal"><span class="radio"></span>Weighted-F1</div></div>
+        <div class="form">
+          <div class="field"><label>随机种子 random_state</label><div class="ctrl">617 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>初始参数组数量</label><div class="ctrl">30 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>每轮候选数量</label><div class="ctrl">20 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>优化轮数</label><div class="ctrl">20 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>学习率 (learning_rate)</label><div class="ctrl">0.001 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>隐藏层结构 ⓘ</label><div class="ctrl">64,32</div></div>
+          <div class="field"><label>batch_size</label><div class="ctrl">64 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>训练轮数 epochs</label><div class="ctrl">200 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+          <div class="field"><label>是否启用早停（Early Stopping）ⓘ</label><div class="switch"></div></div>
+          <div class="field"><label>早停耐心值 (patience)</label><div class="ctrl">10 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+        </div>
+        <div class="field" style="margin-top:12px;width:50%"><label>参数编码方式 ⓘ</label><div class="ctrl">正态分布编码 <svg class="icon sicon"><use href="#i-chevron"/></svg></div></div>
+        <div class="actions"><button class="btn primary"><svg class="icon sicon"><use href="#i-play"/></svg>开始优化</button><button class="btn ghost"><svg class="icon sicon"><use href="#i-refresh"/></svg>重置参数</button></div>
+      </div>
+    </aside>
+
+    <section class="panel monitor">
+      <div class="ptitle"><svg class="icon"><use href="#i-network"/></svg>优化进程监控</div>
+      <div class="stepper"><div class="dash"></div><div class="done-line"></div><div class="step done">参数采样</div><div class="step done">基础模型训练</div><div class="step current">代理网络拟合</div><div class="step pending" data-num="4">候选参数预测</div><div class="step pending" data-num="5">最优结果验证</div></div>
+      <div class="status-row">
+        <div class="scard"><div class="round"><svg class="icon"><use href="#i-share"/></svg></div><div><div class="slabel">当前阶段</div><div class="sval">代理网络拟合</div></div></div>
+        <div class="scard"><div class="round g"></div><div><div class="slabel">运行状态</div><div class="sval g">运行中</div><div class="ssub">一切正常</div></div></div>
+        <div class="scard"><div class="round"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="slabel">已耗时</div><div class="sval r">00:18:42</div><div class="ssub">开始于 09:23:15</div></div></div>
+        <div class="scard"><div class="round"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="slabel">预计剩余</div><div class="sval r">00:21:35</div><div class="ssub">预计完成 09:45:32</div></div></div>
+      </div>
+      <div class="charts">
+        <section class="panel chart"><div class="chart-head"><h3>最佳 Macro-F1 随轮次变化 ⓘ</h3><div class="legend"><span><i></i>当前最优 Macro-F1</span><span><i class="gray"></i>基线模型</span></div></div><div class="line-chart"><div class="yaxis"><span class="yy1">1.00</span><span class="yy2">0.90</span><span class="yy3">0.80</span><span class="yy4">0.70</span><span class="yy5">0.60</span></div><svg class="line-svg" viewBox="0 -8 600 178" preserveAspectRatio="none"><path d="M0 128 L35 115 L70 92 L105 72 L140 63 L175 51 L210 43 L245 34 L280 29 L315 24 L350 21 L385 17 L420 17 L455 8 L490 5 L535 2 L570 0" fill="none" stroke="#ef1d27" stroke-width="3"/><path d="M0 142 L70 136 L140 126 L210 111 L280 108 L350 100 L420 92 L490 86 L570 82" fill="none" stroke="#9ca3af" stroke-width="3"/><g fill="#ef1d27"><circle cx="0" cy="128" r="3"/><circle cx="70" cy="92" r="3"/><circle cx="140" cy="63" r="3"/><circle cx="210" cy="43" r="3"/><circle cx="280" cy="29" r="3"/><circle cx="350" cy="21" r="3"/><circle cx="420" cy="17" r="3"/><circle cx="490" cy="5" r="3"/><circle cx="570" cy="0" r="3"/></g></svg><div class="tag-val">0.9124</div><div class="xaxis"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span><span>11</span><span>13</span><span>15</span><span>17</span><span>19</span><span>20</span></div></div></section>
+        <section class="panel chart"><div class="chart-head"><h3><svg class="icon sicon"><use href="#i-network"/></svg>参数贡献度 / 重要性分析 ⓘ</h3><div class="ctrl" style="width:85px;height:30px;font-size:12px;margin-left:auto;justify-content:flex-end;text-align:right;padding-right:10px">全局重要性</div></div><div class="bar-area">
+          <div class="hrow"><span class="hlabel">C（正则化强度）</span><div><div class="hbar" style="width:100%"></div></div><span class="hvalue">0.248</span></div>
+          <div class="hrow"><span class="hlabel">ngram_range 上界</span><div><div class="hbar" style="width:78%"></div></div><span class="hvalue">0.193</span></div>
+          <div class="hrow"><span class="hlabel">min_df</span><div><div class="hbar" style="width:65%"></div></div><span class="hvalue">0.161</span></div>
+          <div class="hrow"><span class="hlabel">max_df</span><div><div class="hbar" style="width:49%"></div></div><span class="hvalue">0.121</span></div>
+          <div class="hrow"><span class="hlabel">alpha（平滑系数）</span><div><div class="hbar" style="width:40%"></div></div><span class="hvalue">0.098</span></div>
+          <div class="hrow"><span class="hlabel">max_features</span><div><div class="hbar" style="width:29%"></div></div><span class="hvalue">0.072</span></div>
+          <div class="hrow"><span class="hlabel">hidden_units_1</span><div><div class="hbar" style="width:23%"></div></div><span class="hvalue">0.056</span></div>
+          <div class="hrow"><span class="hlabel">hidden_units_2</span><div><div class="hbar" style="width:13%"></div></div><span class="hvalue">0.031</span></div>
+          <div class="hrow"><span class="hlabel">learning_rate</span><div><div class="hbar" style="width:5%"></div></div><span class="hvalue">0.012</span></div>
+          <div class="hrow"><span class="hlabel">其他参数</span><div><div class="hbar" style="width:3%"></div></div><span class="hvalue">0.008</span></div><div class="axis-bottom"></div><div class="axis-num"><span>0</span><span>0.1</span><span>0.2</span><span>0.3</span></div></div></section>
+      </div>
+    </section>
+  </div>
+
+  <div class="bottom">
+    <section class="panel rank"><div class="flexhead"><h3><svg class="icon"><use href="#i-trophy"/></svg>候选参数排行榜</h3><button class="mini"><svg class="icon sicon"><use href="#i-refresh"/></svg>刷新</button></div><table><thead><tr><th>排名</th><th>模型</th><th>参数组合（关键参数）</th><th>预测 Macro-F1</th><th>实际 Macro-F1</th><th>状态</th></tr></thead><tbody><tr><td class="medal">🥇</td><td>LinearSVC</td><td>ngram(1,2) | C=1.0 | min_df=2<br>max_df=0.95 | alpha=0.5</td><td>0.9231</td><td style="color:#e11d26;font-weight:900">0.9124</td><td><span class="status">最优方案<br>建议使用</span></td></tr><tr><td class="medal">🥈</td><td>LogisticRegression</td><td>ngram(1,2) | C=0.8 | min_df=2<br>max_df=0.90 | alpha=1.0</td><td>0.9056</td><td>0.9012</td><td><span class="status">已验证</span></td></tr><tr><td class="medal">🥉</td><td>LinearSVC</td><td>ngram(1,2) | C=0.5 | min_df=1<br>max_df=0.95 | alpha=0.5</td><td>0.8987</td><td>0.8925</td><td><span class="status">已验证</span></td></tr><tr><td>4</td><td>SGDClassifier</td><td>ngram(1,2) | C=1.0 | min_df=2<br>max_df=0.90 | alpha=0.5</td><td>0.8842</td><td>0.8761</td><td><span class="status">已验证</span></td></tr><tr><td>5</td><td>MultinomialNB</td><td>ngram(1,2) | alpha=0.8<br>min_df=2 | max_df=0.95</td><td>0.8453</td><td>0.8380</td><td><span class="status gray">已完成</span></td></tr></tbody></table><div class="foot"><span>10条/页⌄</span><span>‹ <span class="page">1</span> 2 3 4 5 ··· 12 ›</span><span>前往　<input style="width:38px;height:25px;border:1px solid #e5e7eb;border-radius:5px;text-align:center" value="1">　页</span></div></section>
+    <section class="panel recommend"><div class="flexhead"><h3><svg class="icon"><use href="#i-network"/></svg>最优参数推荐</h3><span class="suggest">建议使用</span></div><div class="recbox"><div class="section">特征提取（TF-IDF）</div><div class="plist"><span>ngram_range</span><b>(1, 2)</b><span>min_df</span><b>2</b><span>max_df</span><b>0.95</b><span>max_features</span><b>100000</b></div><div class="section">模型（LinearSVC）</div><div class="plist"><span>C</span><b>1.0</b><span>alpha</span><b>0.5</b><span>loss</span><b>hinge</b><span>dual</span><b>True</b><span>class_weight</span><b>balanced</b></div></div></section>
+    <section class="panel proxy"><div class="flexhead"><h3><svg class="icon"><use href="#i-share"/></svg>神经网络代理模型状态</h3></div><div class="pcard"><div class="label">网络结构</div><div style="font-size:13px;color:#374151">输入层 - 128 - 64 - 32 - 1</div></div><div class="pcard"><div class="label">训练进度 <span style="float:right">72%</span></div><div class="progress"><i style="width:72%"></i></div><div class="label" style="margin-top:12px">当前轮次 <span style="float:right">142 / 200</span></div></div><div class="spark2"><span>Loss<br><b>0.0214</b></span><svg viewBox="0 0 140 32"><path d="M0 24 C10 25,15 23,22 12 C31 0,40 24,52 19 C64 16,72 26,83 19 C95 10,102 22,111 21 C124 22,127 4,140 8" fill="none" stroke="#ef1d27" stroke-width="2"/></svg></div><div class="spark2"><span>Val Loss<br><b>0.0287</b></span><svg viewBox="0 0 140 32"><path d="M0 26 C10 22,18 28,25 20 C35 9,46 25,58 24 C71 20,83 29,94 18 C107 8,119 25,130 20 C135 17,138 9,140 7" fill="none" stroke="#ef1d27" stroke-width="2"/></svg></div><div class="pstatus"><b>状态</b><span class="train">训练中</span></div></section>
+    <section class="rightstack"><section class="panel log"><div class="loghead"><h3><svg class="icon"><use href="#i-file"/></svg>优化日志</h3><span>查看更多</span></div><div class="loglist"><div class="logrow"><span>09:23:15</span><span>优化任务已启动，随机种子：617</span></div><div class="logrow"><span>09:23:18</span><span>第 1 轮参数采样完成，生成候选参数 20 组</span></div><div class="logrow"><span>09:24:02</span><span>基础模型训练完成，耗时 00:43</span></div><div class="logrow red"><span>09:26:11</span><span>代理网络拟合中（Epoch 102/200）</span></div><div class="logrow"><span>09:31:45</span><span>代理网络拟合完成，验证损失：0.0287</span></div><div class="logrow orange"><span>09:32:10</span><span>第 7 轮最优结果已更新，Macro-F1: 0.9124 ★</span></div><div class="logrow blue"><span>09:32:11</span><span>正在预测候选参数性能...</span></div></div></section><section class="panel quick"><div class="qtitle"><svg class="icon"><use href="#i-file"/></svg>快捷操作</div><div class="qgrid"><div class="qcard"><svg class="icon"><use href="#i-trophy"/></svg>查看最优结果</div><div class="qcard"><svg class="icon"><use href="#i-chart"/></svg>进入模型评价</div><div class="qcard"><svg class="icon"><use href="#i-save"/></svg>保存优化记录</div><div class="qcard"><svg class="icon"><use href="#i-export"/></svg>导出优化报告</div></div></section></section>
+  </div>
+</section>
+</main>
+</div></div>
+<script>
+function scalePage(){const w=2048,h=1152,app=document.querySelector(".app"),s=Math.min(innerWidth/w,innerHeight/h);app.style.left=(innerWidth-w*s)/2+"px";app.style.top=(innerHeight-h*s)/2+"px";app.style.transform=`scale(${s})`}
+addEventListener("resize",scalePage);addEventListener("load",scalePage);scalePage();
+</script>
+
+  <script>window.API_BASE="";window.PAGE="optimization";</script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
