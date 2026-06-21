@@ -30,6 +30,9 @@ def result():
 
 @bp.post("/run")
 def run():
+    from api.auth import current_user
+    if not current_user():
+        return err("请先登录后再进行参数优化", 401)
     p = get_payload()
     try:
         res = optimizer.run_optimization(p.get("config"))

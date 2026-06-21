@@ -39,6 +39,9 @@ def get_config():
 
 @bp.post("/run")
 def run():
+    from api.auth import current_user
+    if not current_user():
+        return err("请先登录后再训练模型", 401)
     p = get_payload()
     train_p = services._default_train_path()
     test_p = services._default_test_path()
@@ -98,6 +101,24 @@ def _build_result(summary):
                   "improve_up": False})
 
     concl = summary.get("val_conclusions") or summary.get("conclusions") or {}
+
+    # 「较上次」：仅当存在上一次训练（即第 2 次起）才给出，首次为 None → 前端不显示
+    prev = db.previous_run()
+    deltas = None
+    if prev:
+        def _di(cur, old):
+            d = (cur or 0) - (old or 0)
+            return ("无变化" if d == 0 else (("+" if d > 0 else "") + f"{d:,}"))
+        prev_best = config.MODEL_DISPLAY.get(prev.get("best_model"), "")
+        deltas = {
+            "train_count": _di(summary["train_count"], prev.get("train_count")),
+            "test_count": _di(summary["test_count"], prev.get("test_count")),
+            "random_state": "无变化",
+            "candidate_models": "无变化",
+            "rounds": "+1 轮",
+            "best_model": "无变化" if prev_best == summary["best_model_name"] else f"{prev_best} → {summary['best_model_name']}",
+        }
+
     return {
         "stat_cards": {
             "train_count": summary["train_count"], "test_count": summary["test_count"],
@@ -105,6 +126,7 @@ def _build_result(summary):
             "random_state": config.DEFAULT_RANDOM_STATE, "candidate_models": 2,
             "split_method": summary.get("split_method", "分层抽样"),
             "rounds": "2 / 2", "best_model": summary["best_model_name"],
+            "deltas": deltas,
         },
         "results": {"nb": nb, "lr": lr},
         "best_model": best, "best_model_name": summary["best_model_name"],

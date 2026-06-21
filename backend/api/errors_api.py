@@ -19,6 +19,8 @@ def errors():
     q = request.args.get("q", "").strip()
     f_true = request.args.get("true", "")
     f_pred = request.args.get("pred", "")
+    f_model = request.args.get("model", "")
+    f_conf = request.args.get("confidence", "")
     page = max(1, int(request.args.get("page", 1)))
     page_size = min(100, int(request.args.get("page_size", 10)))
 
@@ -29,6 +31,16 @@ def errors():
         rows = [r for r in rows if r["true_name"] == f_true]
     if f_pred:
         rows = [r for r in rows if r["pred_name"] == f_pred]
+    if f_model:
+        rows = [r for r in rows if r.get("model") == f_model]
+    if f_conf:
+        lo, hi = 0.0, 1.0
+        if "-" in f_conf:
+            a, b = f_conf.split("-", 1)
+            lo, hi = float(a), float(b)
+        elif f_conf.endswith("+"):
+            lo = float(f_conf[:-1])
+        rows = [r for r in rows if lo <= float(r.get("confidence", 0)) <= hi]
 
     total = len(rows)
     start = (page - 1) * page_size

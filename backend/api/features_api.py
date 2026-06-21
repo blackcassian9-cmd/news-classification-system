@@ -26,10 +26,13 @@ def get_config():
     test_p = services._default_test_path()
     tr = dataset_cache.get_rows(train_p) if train_p else []
     te = dataset_cache.get_rows(test_p) if test_p else []
+    has_data = bool(tr or te)
     return ok({
         "params": cfg,
+        "has_data": has_data,
+        "extracted": bool(db.get_setting("tfidf_extracted")),
         "dataset": {
-            "name": db.get_setting("selected_dataset_name", "THUCNews-轻量版"),
+            "name": (db.get_selected_dataset() if has_data else None),
             "train_count": len(tr), "test_count": len(te),
             "num_classes": len({l for _, l in tr}) if tr else 0,
         },
@@ -100,6 +103,7 @@ def extract():
     }
 
     db.add_event("log", f"TF-IDF 特征提取完成：{X_train.shape[1]} 维")
+    db.set_setting("tfidf_extracted", "1")
 
     return ok({
         "overview": overview,

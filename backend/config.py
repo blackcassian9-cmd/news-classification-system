@@ -53,7 +53,9 @@ DEFAULT_TFIDF = {
 
 # ------- 模型默认超参 -------
 DEFAULT_NB = {"alpha": 0.5, "fit_prior": True}
-DEFAULT_LR = {"C": 1.0, "max_iter": 2000, "solver": "liblinear"}
+# solver=lbfgs：兼容 scikit-learn>=1.7（liblinear 自 1.7 起不再支持多分类）；
+# 多分类下 coef_ 形状仍为 (n_classes, n_features)，关键词/错误分析逻辑无需改动。
+DEFAULT_LR = {"C": 1.0, "max_iter": 2000, "solver": "lbfgs"}
 
 DEFAULT_RANDOM_STATE = 617
 DEFAULT_VAL_RATIO = 0.2

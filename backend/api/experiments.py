@@ -17,9 +17,21 @@ bp = Blueprint("experiments", __name__, url_prefix="/api/experiments")
 ALLOWED_MODELS = {"朴素贝叶斯", "逻辑回归"}
 
 
-def _storage_mb():
+def _uid():
+    """当前登录用户 id；未登录返回 None。实验/模型一律按用户隔离。"""
+    from api.auth import current_user
+    u = current_user()
+    return u["id"] if u else None
+
+
+def _storage_mb(uid=None):
+    """只统计当前用户专属模型目录 storage/models/u<uid>/ 的占用。"""
+    uid = uid if uid is not None else _uid()
+    if not uid:
+        return 0.0
+    base = os.path.join(config.MODELS_DIR, f"u{uid}")
     total = 0
-    for root, _, files in os.walk(config.MODELS_DIR):
+    for root, _, files in os.walk(base):
         for fn in files:
             total += os.path.getsize(os.path.join(root, fn))
     return round(total / 1024 / 1024, 2)
@@ -57,7 +69,7 @@ def list_experiments():
             "total": len(exps),
             "completed": len(completed),
             "completed_rate": round(len(completed) / len(exps) * 100, 1) if exps else 0,
-            "models_trained": len(exps),
+            "models_trained": len(runs),
             "best_accuracy": best_acc,
             "deployed": 1 if runs else 0,
             "storage_mb": _storage_mb(),
@@ -66,11 +78,14 @@ def list_experiments():
         "versions": versions,
         "recent_tasks": [
             {"name": e["name"], "status": e["status"],
-             "progress": 100 if e["status"] == "已完成" else 60}
+             "progress": 100 if e["status"] == "已完成" else (0 if e["status"] == "失败" else 60)}
             for e in exps[:4]
         ],
         "selected": rows[0] if rows else None,
         "allowed_models": sorted(ALLOWED_MODELS),
+        "current_dataset": db.get_selected_dataset(),
+        "trained": bool(runs),
+        "server_time": db.now_str(),
     })
 
 

@@ -13,10 +13,25 @@ from db import database as db
 bp = Blueprint("datasets", __name__, url_prefix="/api/datasets")
 
 
+def _uid():
+    """当前登录用户 id；未登录返回 None。数据集一律按用户隔离。"""
+    from api.auth import current_user
+    u = current_user()
+    return u["id"] if u else None
+
+
 @bp.get("")
 def list_datasets():
-    items = db.list_datasets()
-    counts = db.count_datasets()
+    uid = _uid()
+    if not uid:
+        # 未登录：默认空白态，不展示任何数据集
+        return ok({
+            "stat_cards": {"dataset_count": 0, "train_files": 0, "test_files": 0,
+                           "total_samples": 0, "db_status": "未登录", "last_upload": None},
+            "list": [], "selected": None, "logged_in": False,
+        })
+    items = db.list_datasets(uid)
+    counts = db.count_datasets(uid)
     last = items[0]["uploaded_at"] if items else None
     rows = []
     for d in items:
@@ -36,13 +51,19 @@ def list_datasets():
             "last_upload": last,
         },
         "list": rows,
-        "selected": db.get_setting("selected_dataset_name", rows[0]["name"] if rows else None),
+        "selected": db.get_selected_dataset(uid) or (rows[0]["name"] if rows else None),
+        "logged_in": True,
     })
 
 
 @bp.post("/upload")
 def upload():
-    """上传 train.txt / test.txt：解析、校验标签方向、可选写库。"""
+    """上传 train.txt / test.txt：解析、校验标签方向、可选写库。需登录。"""
+    from api.auth import current_user
+    u = current_user()
+    if not u:
+        return err("请先登录后再上传数据集", 401)
+    uid = u["id"]
     if "file" not in request.files:
         return err("未收到文件（字段名应为 file）")
     f = request.files["file"]
@@ -68,8 +89,11 @@ def upload():
         if rep.skipped:
             log.append({"ok": False, "msg": f"{rep.skipped} 行格式异常已跳过"})
 
-    names = config.DEFAULT_LABEL_NAMES[:rep.num_classes]
+    # 标签名按"标签值"可索引（即使样本里类别不从 0 连续，也能正确映射 label→类别名）
+    need = (max(rep.labels_seen) + 1) if rep.labels_seen else rep.num_classes
+    names = config.DEFAULT_LABEL_NAMES[:max(need, rep.num_classes)]
     ds_id = db.insert_dataset({
+        "user_id": uid,
         "name": name, "dtype": dtype, "filename": f.filename, "path": save_path,
         "sample_count": rep.parsed, "num_classes": rep.num_classes,
         "label_names": names, "delimiter": delimiter, "encoding": encoding,
@@ -93,7 +117,10 @@ def upload():
 
     log.insert(0, {"ok": True, "msg": f"{f.filename} 导入成功，{rep.parsed} 条记录"})
     db.add_event("dataset_loaded", f"{f.filename} 导入成功（{rep.parsed} 条）")
-    db.set_setting("selected_dataset_name", name)
+    # 选中数据集以训练集为中心；上传测试集不抢占已有选择（按用户隔离）
+    cur = db.get_selected_dataset(uid)
+    if dtype == "train" or not cur:
+        db.set_selected_dataset(name, uid)
 
     return ok({"dataset_id": ds_id, "parsed": rep.parsed, "skipped": rep.skipped,
                "num_classes": rep.num_classes, "label_position": rep.label_position,
@@ -102,7 +129,10 @@ def upload():
 
 @bp.delete("/<int:ds_id>")
 def delete(ds_id):
-    if not db.get_dataset(ds_id):
+    uid = _uid()
+    if not uid:
+        return err("请先登录", 401)
+    if not db.get_dataset(ds_id, uid):     # 仅能删除自己名下的数据集
         return err("数据集不存在", 404)
     db.delete_dataset(ds_id)
     return ok({"deleted": ds_id})
@@ -110,23 +140,82 @@ def delete(ds_id):
 
 @bp.get("/schema")
 def schema():
-    return ok({"fields": [
-        {"name": "text", "type": "TEXT", "desc": "原始新闻文本内容"},
-        {"name": "label", "type": "INTEGER", "desc": "类别标签（0-9）"},
-        {"name": "data_type", "type": "TEXT", "desc": "train / test"},
-        {"name": "clean_text", "type": "TEXT", "desc": "清洗后的文本内容"},
-    ]})
+    """字段结构列表：随『当前选中数据集』联动，描述里带该数据集的真实示例。"""
+    from core import dataset_cache, preprocess
+    uid = _uid()
+    name = request.args.get("name") or db.get_selected_dataset(uid)
+    items = db.list_datasets(uid) if uid else []
+    ds = None
+    if name:
+        ds = next((d for d in items if d["name"] == name), None)
+    if not ds:
+        ds = items[0] if items else None
+
+    example_text, example_label, example_clean, example_dtype = "—", "—", "—", "—"
+    if ds and ds.get("path"):
+        try:
+            rows = dataset_cache.get_rows(ds["path"])
+            if rows:
+                t0, l0 = rows[0]
+                names = ds.get("label_names") or config.DEFAULT_LABEL_NAMES
+                example_text = (t0[:24] + "…") if len(t0) > 24 else t0
+                example_label = f"{l0}（{names[l0] if l0 < len(names) else l0}）"
+                example_clean = preprocess.clean_text(t0)[:24] or "—"
+                example_dtype = ds["dtype"]
+        except Exception:  # noqa: BLE001
+            pass
+
+    return ok({
+        "dataset": (ds["name"] if ds else None),
+        "has_data": ds is not None,
+        "fields": [
+            {"name": "text", "type": "TEXT", "desc": f"原始新闻文本内容（示例：{example_text}）"},
+            {"name": "label", "type": "INTEGER", "desc": f"类别标签（示例：{example_label}）"},
+            {"name": "data_type", "type": "TEXT", "desc": f"train / test（当前：{example_dtype}）"},
+            {"name": "clean_text", "type": "TEXT", "desc": f"清洗后文本（示例：{example_clean}）"},
+        ],
+    })
+
+
+@bp.get("/<int:ds_id>/rows")
+def dataset_rows(ds_id):
+    """整表预览：分页返回某数据集的样本，供前端滚动加载更多。"""
+    from core import dataset_cache
+    ds = db.get_dataset(ds_id, _uid())
+    if not ds:
+        return err("数据集不存在", 404)
+    offset = max(0, int(request.args.get("offset", 0)))
+    limit = min(500, int(request.args.get("limit", 100)))
+    names = ds.get("label_names") or config.DEFAULT_LABEL_NAMES
+    try:
+        all_rows = dataset_cache.get_rows(ds["path"])
+    except Exception as e:  # noqa: BLE001
+        return err(f"读取数据集失败：{e}")
+    total = len(all_rows)
+    page = all_rows[offset:offset + limit]
+    rows = [{
+        "idx": offset + i + 1,
+        "text": t,
+        "label": l,
+        "label_name": names[l] if l < len(names) else str(l),
+    } for i, (t, l) in enumerate(page)]
+    return ok({"rows": rows, "total": total, "offset": offset, "limit": limit,
+               "name": ds["name"], "type_label": "训练集" if ds["dtype"] == "train" else "测试集"})
 
 
 @bp.get("/distribution")
 def distribution():
     """当前选中数据集的 训练/测试 占比（环形图）+ 概要。"""
-    name = request.args.get("name") or db.get_setting("selected_dataset_name")
-    items = db.list_datasets()
-    if name:
-        items = [d for d in items if d["name"] == name] or items
+    uid = _uid()
+    name = request.args.get("name") or db.get_selected_dataset(uid)
+    items = db.list_datasets(uid) if uid else []
+    sel = next((d for d in items if d["name"] == name), None) if name else None
     train = next((d for d in items if d["dtype"] == "train"), None)
     test = next((d for d in items if d["dtype"] == "test"), None)
+    if sel and sel["dtype"] == "train":
+        train = sel
+    elif sel and sel["dtype"] == "test":
+        test = sel
     tr_n = train["sample_count"] if train else 0
     te_n = test["sample_count"] if test else 0
     total = tr_n + te_n or 1
@@ -146,20 +235,30 @@ def distribution():
 
 @bp.get("/db-status")
 def db_status():
-    size_mb = round(os.path.getsize(config.DB_PATH) / 1024 / 1024, 2) if os.path.exists(config.DB_PATH) else 0.0
-    last = db.recent_events(1)
+    uid = _uid()
+    has_data = bool(db.list_datasets(uid)) if uid else False
+    # 未登录 / 该用户无数据：业务表计 0（不暴露他人/历史遗留数据）
+    tables = db.count_nonempty_business_tables(uid) if has_data else 0
+    size_mb = 0.0
+    if has_data and os.path.exists(config.DB_PATH):
+        size_mb = round(os.path.getsize(config.DB_PATH) / 1024 / 1024, 2)
+    last = db.recent_events(1, uid)
     return ok({
-        "connected": True, "engine": "SQLite", "tables": 8,
-        "last_sync": last[0]["ts"] if last else None,
+        "connected": True, "engine": "SQLite",
+        "tables": tables,
+        "last_sync": (last[0]["ts"] if (last and has_data) else None),
         "storage_mb": size_mb,
     })
 
 
 @bp.post("/select")
 def select():
+    uid = _uid()
+    if not uid:
+        return err("请先登录", 401)
     p = get_payload()
     name = p.get("name")
     if not name:
         return err("缺少 name")
-    db.set_setting("selected_dataset_name", name)
+    db.set_selected_dataset(name, uid)
     return ok({"selected": name})

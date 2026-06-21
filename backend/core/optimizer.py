@@ -165,7 +165,7 @@ def run_optimization(opt_config: Dict = None) -> Dict:
         Xtr, Xval = _features(p)
         nb = MultinomialNB(alpha=p["alpha"]).fit(Xtr, tr_y)
         s_nb = _metric(val_y, nb.predict(Xval), objective)
-        lr = LogisticRegression(C=p["C"], max_iter=600, solver="liblinear").fit(Xtr, tr_y)
+        lr = LogisticRegression(C=p["C"], max_iter=600, solver="lbfgs").fit(Xtr, tr_y)
         s_lr = _metric(val_y, lr.predict(Xval), objective)
         winner = config.MODEL_LR if s_lr >= s_nb else config.MODEL_NB
         return {"params": p, "nb": round(s_nb, 4), "lr": round(s_lr, 4),
@@ -317,7 +317,7 @@ def _grid_search(objective, tr_t, val_t, tr_y, val_y, t0, seed) -> Dict:
                          "nb": round(s, 4), "lr": 0.0, "objective": round(s, 4),
                          "winner": config.MODEL_NB})
         for C in (0.3, 1.0, 3.0, 10.0):
-            lr = LogisticRegression(C=C, max_iter=600, solver="liblinear").fit(Xtr, tr_y)
+            lr = LogisticRegression(C=C, max_iter=600, solver="lbfgs").fit(Xtr, tr_y)
             s = _metric(val_y, lr.predict(Xval), objective)
             rows.append({"params": {"ngram_max": ng, "min_df": 2, "max_df": 0.95,
                                      "max_features": 50000, "alpha": None, "C": C},

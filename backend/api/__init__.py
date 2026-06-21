@@ -57,8 +57,10 @@ def register_blueprints(app: Flask) -> None:
     from api.experiments import bp as experiments_bp
     from api.optimization import bp as optimization_bp
     from api.reports import bp as reports_bp
+    from api.auth import bp as auth_bp
+    from api.system import bp as system_bp
 
     for bp in (overview_bp, datasets_bp, preview_bp, features_bp, training_bp,
                evaluation_bp, prediction_bp, errors_bp, experiments_bp,
-               optimization_bp, reports_bp):
+               optimization_bp, reports_bp, auth_bp, system_bp):
         app.register_blueprint(bp)

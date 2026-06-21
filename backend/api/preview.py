@@ -12,12 +12,17 @@ bp = Blueprint("preview", __name__, url_prefix="/api")
 
 
 def _resolve_paths():
+    """解析训练/测试集：选中名仅覆盖同类型的那一个，始终保留另一类型，
+    避免选了 test 后训练集丢失导致清洗/预览为空。"""
     items = db.list_datasets()
-    name = db.get_setting("selected_dataset_name")
-    if name:
-        items = [d for d in items if d["name"] == name] or items
+    name = db.get_selected_dataset()
+    sel = next((d for d in items if d["name"] == name), None) if name else None
     train = next((d for d in items if d["dtype"] == "train"), None)
     test = next((d for d in items if d["dtype"] == "test"), None)
+    if sel and sel["dtype"] == "train":
+        train = sel
+    elif sel and sel["dtype"] == "test":
+        test = sel
     return train, test
 
 
@@ -87,7 +92,10 @@ def _quality_cards(train, test):
     tr_rows = dataset_cache.get_rows(train["path"]) if train else []
     te_rows = dataset_cache.get_rows(test["path"]) if test else []
     all_texts = [t for t, _ in tr_rows] + [t for t, _ in te_rows]
-    n = len(all_texts) or 1
+    if not all_texts:                       # 空库：所有指标为 0
+        return {"train_count": 0, "test_count": 0, "missing": 0,
+                "duplicate": 0, "avg_length": 0.0, "usable_rate": 0.0}
+    n = len(all_texts)
     dup = n - len(set(all_texts))
     avg_len = round(sum(len(t) for t in all_texts) / n, 1)
     cleaned = [preprocess.clean_text(t) for t in all_texts]
@@ -117,20 +125,20 @@ def run_clean():
     tr_labels = [l for _, l in tr_rows]
     _, _, tr_stats = preprocess.clean_dataset(tr_texts, tr_labels, rules)
 
-    # 前后对比样例
+    # 前后对比样例（多给几条，前端用滚动条查看）
     pairs = []
-    for text, _ in tr_rows[:4]:
+    for text, _ in tr_rows[:30]:
         pairs.append({"before": text, "after": preprocess.clean_text(text, rules)})
 
     total = tr_stats["total"]
     kept = tr_stats["kept"]
-    # 类别分布 top5
+    # 类别分布（全部类别，按数量降序；前端用滚动条查看）
     counts = {}
     for _, l in tr_rows:
         counts[l] = counts.get(l, 0) + 1
     dist = sorted(({"name": names[l] if l < len(names) else str(l), "count": c,
                     "ratio": round(c / (total or 1) * 100, 1)}
-                   for l, c in counts.items()), key=lambda x: x["count"], reverse=True)[:5]
+                   for l, c in counts.items()), key=lambda x: x["count"], reverse=True)
     # 长度区间
     bins = {"0-10": 0, "11-20": 0, "21-30": 0, "31-50": 0, "50+": 0}
     for t in tr_texts:
@@ -167,7 +175,8 @@ def run_clean():
             "avg_len_before": tr_stats["avg_len_before"],
             "avg_len_after": tr_stats["avg_len_after"],
         },
-        "category_top5": dist,
+        "category_top5": dist[:5],
+        "category_distribution": dist,
         "length_bins": length_bins,
         "integrity": {
             "missing_rate": 0.0,

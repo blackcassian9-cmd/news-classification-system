@@ -5,6 +5,9 @@
 from __future__ import annotations
 
 import time
+import re
+from html import unescape
+from urllib.parse import urlparse
 
 from flask import Blueprint, request
 
@@ -14,6 +17,13 @@ from core import services, similar_news
 from db import database as db
 
 bp = Blueprint("prediction", __name__, url_prefix="/api/prediction")
+
+
+def _uid():
+    """当前登录用户 id；未登录返回 None。预测/历史一律按用户隔离。"""
+    from api.auth import current_user
+    u = current_user()
+    return u["id"] if u else None
 
 
 @bp.get("/models")
@@ -42,6 +52,8 @@ def stats():
 
 @bp.post("/predict")
 def predict():
+    if not _uid():
+        return err("请先登录后再使用预测功能", 401)
     p = get_payload()
     text = (p.get("text") or "").strip()
     if not text:
@@ -72,6 +84,8 @@ def predict():
 @bp.post("/batch")
 def batch():
     """批量预测：对测试集（默认）或上传/传入的一批无标签文本。与『训练』不同——这里只做推理。"""
+    if not _uid():
+        return err("请先登录后再使用预测功能", 401)
     if not services.has_trained_model():
         return err("尚未训练模型，请先完成『模型训练』再批量预测。", 409)
     p = get_payload()
@@ -99,6 +113,8 @@ def batch():
 @bp.post("/batch-upload")
 def batch_upload():
     """上传无标签文本文件（每行一条），做批量预测。"""
+    if not _uid():
+        return err("请先登录后再使用预测功能", 401)
     if not services.has_trained_model():
         return err("尚未训练模型，请先完成『模型训练』再批量预测。", 409)
     if "file" not in request.files:
@@ -137,3 +153,34 @@ def similar():
     if not text:
         return err("缺少 text")
     return ok(similar_news.recommend(text, request.args.get("category", "")))
+
+
+@bp.get("/similar-detail")
+def similar_detail():
+    """抓取相似新闻详情，用简单 Markdown 返回标题、正文和网址。"""
+    url = request.args.get("url", "").strip()
+    title = request.args.get("title", "").strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return err("无效的网址")
+    try:
+        import requests
+        resp = requests.get(url, timeout=12, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; NewsClassifier/1.0)"
+        })
+        resp.raise_for_status()
+        raw = resp.text[:800000]
+        raw = re.sub(r"(?is)<script[^>]*>.*?</script>|<style[^>]*>.*?</style>|<noscript[^>]*>.*?</noscript>", " ", raw)
+        if not title:
+            m = re.search(r"(?is)<title[^>]*>(.*?)</title>", raw)
+            title = re.sub(r"\s+", " ", unescape(m.group(1))).strip() if m else "相似新闻详情"
+        text = re.sub(r"(?is)<br\s*/?>|</p>|</div>|</h[1-6]>", "\n", raw)
+        text = re.sub(r"(?is)<[^>]+>", " ", text)
+        text = re.sub(r"[ \t\r\f\v]+", " ", unescape(text))
+        lines = [ln.strip() for ln in text.splitlines() if len(ln.strip()) >= 8]
+        body = "\n\n".join(lines)[:8000] or "未能从网页中提取到可读正文，请打开原链接查看。"
+        return ok({"title": title or "相似新闻详情", "url": url,
+                   "markdown": f"# {title or '相似新闻详情'}\n\n原文链接：{url}\n\n{body}"})
+    except Exception as exc:  # noqa: BLE001
+        return ok({"title": title or "相似新闻详情", "url": url,
+                   "markdown": f"# {title or '相似新闻详情'}\n\n原文链接：{url}\n\n网页正文抓取失败：{exc}"})

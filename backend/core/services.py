@@ -14,13 +14,22 @@ import config
 from core import conclusions, data_loader, evaluate, pipeline, preprocess
 from db import database as db
 
-# 模型产物缓存（训练完成后失效重载）
-_ARTIFACTS: Optional[Dict] = None
+# 模型产物缓存：按用户隔离（键为 user_id），训练完成后失效重载
+_ARTIFACTS: Dict[Optional[int], Optional[Dict]] = {}
 
 
-def invalidate_cache() -> None:
+def _model_tag(uid: Optional[int]) -> Optional[str]:
+    """每个用户的模型产物独立目录：storage/models/u<uid>/。未登录无产物。"""
+    return f"u{uid}" if uid else None
+
+
+def invalidate_cache(user_id: Optional[int] = None) -> None:
+    """失效产物缓存。默认清空全部（登录/退出切换账号用）；传 user_id 只清该用户。"""
     global _ARTIFACTS
-    _ARTIFACTS = None
+    if user_id is None:
+        _ARTIFACTS = {}
+    else:
+        _ARTIFACTS.pop(user_id, None)
 
 
 def _maybe_llm_conclusions(concl: Dict, summary: Dict) -> Dict:
@@ -56,14 +65,19 @@ def ensure_llm_conclusions(run: Dict) -> Dict:
 
 
 def get_artifacts() -> Optional[Dict]:
-    global _ARTIFACTS
-    if _ARTIFACTS is None:
-        _ARTIFACTS = pipeline.load_artifacts("current")
-    return _ARTIFACTS
+    """加载「当前登录用户」的模型产物（带按用户缓存）。未登录返回 None → 空白态。"""
+    uid = db.get_active_uid()
+    if not uid:
+        return None
+    if uid not in _ARTIFACTS:
+        _ARTIFACTS[uid] = pipeline.load_artifacts(_model_tag(uid))
+    return _ARTIFACTS[uid]
 
 
 def has_trained_model() -> bool:
-    return get_artifacts() is not None
+    # 必须既有磁盘模型产物、又有数据库训练记录，才算"已加载"。
+    # 二者都按当前用户隔离：未登录 / 他人模型一律视为空白态。
+    return db.latest_run() is not None and get_artifacts() is not None
 
 
 # -------------------- 训练 --------------------
@@ -72,10 +86,16 @@ def train_and_store(train_path: str, test_path: str, *,
                     lr_params: Dict = None, clean_rules: Dict = None,
                     label_names: List[str] = None, delimiter: str = "\t",
                     use_optimized: bool = True) -> Dict:
+    # 按用户隔离：训练产物落在该用户专属目录，未登录禁止训练
+    uid = db.get_active_uid()
+    if not uid:
+        raise RuntimeError("请先登录后再训练模型。")
+    tag = _model_tag(uid)
+
     # 自动采用「深度学习参数优化」搜出的最佳参数（若用户未显式传参且优化过）
     opt_used = None
     if use_optimized and not any([tfidf_params, nb_params, lr_params]):
-        latest_opt = db.latest_optimization()
+        latest_opt = db.latest_optimization(uid)
         if latest_opt and latest_opt.get("best_params"):
             bp = latest_opt["best_params"]
             tfidf_params = bp.get("tfidf") or None
@@ -87,7 +107,7 @@ def train_and_store(train_path: str, test_path: str, *,
     summary = pipeline.run_pipeline(
         train_path, test_path, tfidf_params=tfidf_params, nb_params=nb_params,
         lr_params=lr_params, clean_rules=clean_rules, label_names=label_names,
-        delimiter=delimiter, save=True, model_tag="current")
+        delimiter=delimiter, save=True, model_tag=tag)
     summary["nb_params"] = {**config.DEFAULT_NB, **(nb_params or {})}
     summary["lr_params"] = {**config.DEFAULT_LR, **(lr_params or {})}
     summary["clean_rules"] = clean_rules or preprocess.DEFAULT_RULES
@@ -111,7 +131,7 @@ def train_and_store(train_path: str, test_path: str, *,
     }
 
     concl = _maybe_llm_conclusions(concl, summary)
-    run_id = db.insert_run(summary, conclusions=concl)
+    run_id = db.insert_run(summary, conclusions=concl, user_id=uid)
     summary["run_id"] = run_id
     summary["conclusions"] = concl
 
@@ -131,9 +151,9 @@ def train_and_store(train_path: str, test_path: str, *,
             "status": "已完成", "run_id": run_id,
             "description": f"TF-IDF + {config.MODEL_DISPLAY[key]}，测试集 Macro-F1={m['macro_f1']:.4f}",
             "params": summary["tfidf_params"],
-        })
+        }, user_id=uid)
 
-    invalidate_cache()
+    invalidate_cache(uid)
     return summary
 
 
@@ -284,20 +304,18 @@ def keyword_contributions(cleaned_text: str, model_key: str, art: Dict,
 
 # -------------------- 工具 --------------------
 def _default_test_path() -> Optional[str]:
-    # 优先使用已上传的最近 test 数据集，否则回退到内置 THUCNews
+    # 仅使用用户已上传的最近 test 数据集（空白启动：无内置兜底）
     for d in db.list_datasets():
         if d["dtype"] == "test" and d.get("path") and os.path.exists(d["path"]):
             return d["path"]
-    fallback = os.path.join(config.DATASETS_DIR, "thucnews", "test.txt")
-    return fallback if os.path.exists(fallback) else None
+    return None
 
 
 def _default_train_path() -> Optional[str]:
     for d in db.list_datasets():
         if d["dtype"] == "train" and d.get("path") and os.path.exists(d["path"]):
             return d["path"]
-    fallback = os.path.join(config.DATASETS_DIR, "thucnews", "train.txt")
-    return fallback if os.path.exists(fallback) else None
+    return None
 
 
 def pct_delta(curr: float, prev: Optional[float]) -> Optional[Dict]:
